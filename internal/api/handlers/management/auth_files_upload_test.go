@@ -113,6 +113,45 @@ func TestUploadAuthFilePersistsUploadedJSONThroughStorePersister(t *testing.T) {
 	}
 }
 
+func TestRegisterAuthFromFileAppliesRoutingMetadata(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	authDir := t.TempDir()
+	store := &memoryAuthStore{}
+	manager := coreauth.NewManager(store, nil, nil)
+	h := &Handler{
+		cfg: &config.Config{
+			AuthDir: authDir,
+		},
+		authManager: manager,
+	}
+
+	fileName := "claude-pro.json"
+	absPath := filepath.Join(authDir, fileName)
+	data := []byte(`{"type":"claude","email":"pro@example.com","prefix":"team-a","proxy_url":"http://auth-proxy.local:8080","proxy_id":"premium-egress"}`)
+	if err := os.WriteFile(absPath, data, 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	if err := h.registerAuthFromFile(context.Background(), absPath, data); err != nil {
+		t.Fatalf("registerAuthFromFile: %v", err)
+	}
+
+	auth, ok := manager.GetByID(fileName)
+	if !ok || auth == nil {
+		t.Fatalf("registered auth not found")
+	}
+	if auth.Prefix != "team-a" {
+		t.Fatalf("Prefix = %q, want team-a", auth.Prefix)
+	}
+	if auth.ProxyURL != "http://auth-proxy.local:8080" {
+		t.Fatalf("ProxyURL = %q, want auth proxy", auth.ProxyURL)
+	}
+	if auth.ProxyID != "premium-egress" {
+		t.Fatalf("ProxyID = %q, want premium-egress", auth.ProxyID)
+	}
+}
+
 func TestImportVertexCredentialRejectsOversizedMultipart(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

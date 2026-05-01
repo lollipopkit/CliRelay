@@ -620,6 +620,7 @@ type DashboardKPI struct {
 	ReasoningTokens int64   `json:"reasoning_tokens"`
 	CachedTokens    int64   `json:"cached_tokens"`
 	TotalTokens     int64   `json:"total_tokens"`
+	TotalCost       float64 `json:"total_cost"`
 }
 
 type DashboardTrendPoint struct {
@@ -664,7 +665,8 @@ func QueryDashboardKPI(days int) (DashboardKPI, error) {
 			COALESCE(SUM(output_tokens), 0),
 			COALESCE(SUM(reasoning_tokens), 0),
 			COALESCE(SUM(cached_tokens), 0),
-			COALESCE(SUM(total_tokens), 0)
+			COALESCE(SUM(total_tokens), 0),
+			COALESCE(SUM(cost), 0)
 		FROM request_logs
 		WHERE timestamp >= ?
 	`, cutoff).Scan(
@@ -676,6 +678,7 @@ func QueryDashboardKPI(days int) (DashboardKPI, error) {
 		&kpi.ReasoningTokens,
 		&kpi.CachedTokens,
 		&kpi.TotalTokens,
+		&kpi.TotalCost,
 	)
 	if err != nil {
 		return DashboardKPI{}, fmt.Errorf("usage: dashboard KPI query: %w", err)
