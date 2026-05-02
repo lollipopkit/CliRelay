@@ -2176,7 +2176,7 @@ func (m *Manager) snapshotAuths() []*Auth {
 }
 
 func (m *Manager) shouldRefresh(a *Auth, now time.Time) bool {
-	if a == nil || a.Disabled {
+	if a == nil {
 		return false
 	}
 	if !a.NextRefreshAfter.IsZero() && now.Before(a.NextRefreshAfter) {
@@ -2384,7 +2384,7 @@ func (m *Manager) markRefreshPending(id string, now time.Time) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	auth, ok := m.auths[id]
-	if !ok || auth == nil || auth.Disabled {
+	if !ok || auth == nil {
 		return false
 	}
 	if !auth.NextRefreshAfter.IsZero() && now.Before(auth.NextRefreshAfter) {
