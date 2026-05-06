@@ -29,6 +29,7 @@ func setupConfigMigrationTestDB(t *testing.T) func() {
 		t.Fatalf("create request_logs table: %v", err)
 	}
 	initAPIKeysTable(db)
+	initAPIKeyPermissionProfilesTable(db)
 	initRoutingConfigTable(db)
 	initProxyPoolTable(db)
 	initRuntimeSettingsTable(db)
@@ -110,20 +111,20 @@ func TestMigrateRoutingConfigFromConfigKeepsYAMLWhenDBUnavailable(t *testing.T) 
 
 func TestCleanDBBackedConfigFromYAMLCleansPersistedSections(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
-	content := []byte("port: 8318\napi-keys:\n  - sk-test\napi-key-entries:\n  - key: sk-entry\nrouting:\n  strategy: round-robin\nproxy-pool:\n  - id: hk\n    url: http://127.0.0.1:7890\ngemini-api-key:\n  - api-key: sk-gemini\ncodex-api-key:\n  - api-key: sk-codex\n    base-url: https://codex.example.com\nclaude-api-key:\n  - api-key: sk-claude\n    base-url: https://claude.example.com\nbedrock-api-key:\n  - name: bedrock\nopencode-go-api-key:\n  - api-key: sk-opencode\nopenai-compatibility:\n  - name: compat\n    base-url: https://compat.example.com\nvertex-api-key:\n  - api-key: sk-vertex\n    base-url: https://vertex.example.com\nclaude-header-defaults:\n  user-agent: ClaudeCLI/1.0\nkimi-header-defaults:\n  user-agent: KimiCLI/1.24.0\nidentity-fingerprint:\n  codex:\n    enabled: true\noauth-excluded-models:\n  codex:\n    - gpt-4\noauth-model-alias:\n  codex:\n    - name: gpt-5\n      alias: codex-gpt5\npayload:\n  default:\n    - models:\n        - name: gpt-5\n      params:\n        temperature: 0.2\nlogging-to-file: true\n")
+	content := []byte("port: 8318\napi-keys:\n  - sk-test\napi-key-entries:\n  - key: sk-entry\napi-key-permission-profiles:\n  - id: standard\n    name: Standard\nrouting:\n  strategy: round-robin\nproxy-pool:\n  - id: hk\n    url: http://127.0.0.1:7890\ngemini-api-key:\n  - api-key: sk-gemini\ncodex-api-key:\n  - api-key: sk-codex\n    base-url: https://codex.example.com\nclaude-api-key:\n  - api-key: sk-claude\n    base-url: https://claude.example.com\nbedrock-api-key:\n  - name: bedrock\nopencode-go-api-key:\n  - api-key: sk-opencode\nopenai-compatibility:\n  - name: compat\n    base-url: https://compat.example.com\nvertex-api-key:\n  - api-key: sk-vertex\n    base-url: https://vertex.example.com\nclaude-header-defaults:\n  user-agent: ClaudeCLI/1.0\nkimi-header-defaults:\n  user-agent: KimiCLI/1.24.0\nidentity-fingerprint:\n  codex:\n    enabled: true\noauth-excluded-models:\n  codex:\n    - gpt-4\noauth-model-alias:\n  codex:\n    - name: gpt-5\n      alias: codex-gpt5\npayload:\n  default:\n    - models:\n        - name: gpt-5\n      params:\n        temperature: 0.2\nlogging-to-file: true\n")
 	if err := os.WriteFile(configPath, content, 0o640); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 
-	if removed := CleanDBBackedConfigFromYAML(configPath); removed != 17 {
-		t.Fatalf("CleanDBBackedConfigFromYAML removed %d sections, want 17", removed)
+	if removed := CleanDBBackedConfigFromYAML(configPath); removed != 18 {
+		t.Fatalf("CleanDBBackedConfigFromYAML removed %d sections, want 18", removed)
 	}
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		t.Fatalf("read config: %v", err)
 	}
-	for _, forbidden := range []string{"api-keys:", "api-key-entries:", "routing:", "proxy-pool:", "gemini-api-key:", "codex-api-key:", "claude-api-key:", "bedrock-api-key:", "opencode-go-api-key:", "openai-compatibility:", "vertex-api-key:", "claude-header-defaults:", "kimi-header-defaults:", "identity-fingerprint:", "oauth-excluded-models:", "oauth-model-alias:", "payload:"} {
+	for _, forbidden := range []string{"api-keys:", "api-key-entries:", "api-key-permission-profiles:", "routing:", "proxy-pool:", "gemini-api-key:", "codex-api-key:", "claude-api-key:", "bedrock-api-key:", "opencode-go-api-key:", "openai-compatibility:", "vertex-api-key:", "claude-header-defaults:", "kimi-header-defaults:", "identity-fingerprint:", "oauth-excluded-models:", "oauth-model-alias:", "payload:"} {
 		if strings.Contains(string(data), forbidden) {
 			t.Fatalf("%s should be removed from YAML:\n%s", forbidden, string(data))
 		}
@@ -199,6 +200,60 @@ func TestAPIKeyMigrationBackupUsesPrivatePermissions(t *testing.T) {
 		t.Fatalf("MigrateAPIKeysFromConfig = %d, want 1", migrated)
 	}
 	assertMigrationBackupMode(t, configPath+".pre-sqlite-migration", 0o600)
+}
+
+func TestMigrateAPIKeyPermissionProfilesFromYAMLCleansYAML(t *testing.T) {
+	cleanup := setupConfigMigrationTestDB(t)
+	defer cleanup()
+
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	content := []byte(`port: 8318
+api-key-permission-profiles:
+  - id: mixed-gpt-opencode
+    name: 混合 gpt+opencode 模型
+    daily-limit: 15000
+    total-quota: 0
+    concurrency-limit: 0
+    rpm-limit: 0
+    tpm-limit: 0
+    allowed-channel-groups:
+      - chatgpt-mix
+      - opencode
+    allowed-channels: []
+    allowed-models: []
+    system-prompt: ""
+logging-to-file: true
+`)
+	if err := os.WriteFile(configPath, content, 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if migrated := MigrateAPIKeyPermissionProfilesFromYAML(configPath); migrated != 1 {
+		t.Fatalf("MigrateAPIKeyPermissionProfilesFromYAML = %d, want 1", migrated)
+	}
+
+	profiles := ListAPIKeyPermissionProfiles()
+	if len(profiles) != 1 {
+		t.Fatalf("ListAPIKeyPermissionProfiles len = %d, want 1", len(profiles))
+	}
+	if profiles[0].ID != "mixed-gpt-opencode" || profiles[0].DailyLimit != 15000 {
+		t.Fatalf("migrated profile = %#v", profiles[0])
+	}
+	if len(profiles[0].AllowedChannelGroups) != 2 || profiles[0].AllowedChannelGroups[1] != "opencode" {
+		t.Fatalf("migrated allowed-channel-groups = %#v", profiles[0].AllowedChannelGroups)
+	}
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	if strings.Contains(string(data), "api-key-permission-profiles:") {
+		t.Fatalf("api-key-permission-profiles should be removed from YAML after migration:\n%s", string(data))
+	}
+	if !strings.Contains(string(data), "port: 8318") || !strings.Contains(string(data), "logging-to-file: true") {
+		t.Fatalf("ordinary config should remain in YAML:\n%s", string(data))
+	}
+	assertMigrationBackupMode(t, configPath+".pre-api-key-permission-profiles-sqlite-migration", 0o600)
 }
 
 func assertMigrationBackupMode(t *testing.T, path string, want os.FileMode) {
