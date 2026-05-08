@@ -32,10 +32,14 @@ func NewHTTPClient(timeout time.Duration) *http.Client {
 	return client
 }
 
-func NewDefaultTransport() *http.Transport {
+func NewDefaultTransport(preferIPv4 bool) *http.Transport {
+	dialer := &net.Dialer{Timeout: DefaultHTTPDialTimeout, KeepAlive: 30 * time.Second}
+	if preferIPv4 {
+		dialer.LocalAddr = &net.TCPAddr{IP: net.IPv4zero}
+	}
 	return &http.Transport{
 		Proxy:                 http.ProxyFromEnvironment,
-		DialContext:           (&net.Dialer{Timeout: DefaultHTTPDialTimeout, KeepAlive: 30 * time.Second, LocalAddr: &net.TCPAddr{IP: net.IPv4zero}}).DialContext,
+		DialContext:           dialer.DialContext,
 		ForceAttemptHTTP2:     true,
 		MaxIdleConns:          100,
 		IdleConnTimeout:       DefaultHTTPIdleConnTimeout,
@@ -46,7 +50,7 @@ func NewDefaultTransport() *http.Transport {
 	}
 }
 
-func BuildProxyTransport(proxyURL string) *http.Transport {
+func BuildProxyTransport(proxyURL string, preferIPv4 bool) *http.Transport {
 	proxyURL = strings.TrimSpace(proxyURL)
 	if proxyURL == "" {
 		return nil
@@ -58,7 +62,7 @@ func BuildProxyTransport(proxyURL string) *http.Transport {
 		return nil
 	}
 
-	transport := NewDefaultTransport()
+	transport := NewDefaultTransport(preferIPv4)
 	switch parsedURL.Scheme {
 	case "socks5":
 		var proxyAuth *proxy.Auth
@@ -74,6 +78,9 @@ func BuildProxyTransport(proxyURL string) *http.Transport {
 		}
 		transport.Proxy = nil
 		transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			if preferIPv4 {
+				network = "tcp4"
+			}
 			return dialer.Dial(network, addr)
 		}
 	case "http", "https":
@@ -95,14 +102,14 @@ func SetProxy(cfg *config.SDKConfig, httpClient *http.Client) *http.Client {
 	}
 	if cfg == nil {
 		if httpClient.Transport == nil {
-			httpClient.Transport = NewDefaultTransport()
+			httpClient.Transport = NewDefaultTransport(false)
 		}
 		return httpClient
 	}
 	if httpClient.Transport == nil {
-		httpClient.Transport = NewDefaultTransport()
+		httpClient.Transport = NewDefaultTransport(cfg.PreferIPv4)
 	}
-	if transport := BuildProxyTransport(cfg.ProxyURL); transport != nil {
+	if transport := BuildProxyTransport(cfg.ProxyURL, cfg.PreferIPv4); transport != nil {
 		httpClient.Transport = transport
 	}
 	return httpClient
