@@ -1030,3 +1030,71 @@ func TestClearAllRequestLogsRemovesRequestLogTablesOnly(t *testing.T) {
 		t.Fatalf("ListAPIKeys() = %#v, want preserved api key row", keys)
 	}
 }
+
+func TestClearRequestLogsClearsBodiesButKeepsRequestRows(t *testing.T) {
+	initTestUsageDB(t, config.RequestLogStorageConfig{
+		StoreContent:           true,
+		ContentRetentionDays:   30,
+		CleanupIntervalMinutes: 1440,
+	})
+
+	now := time.Now().UTC()
+	details := `{"request_id":"req-1","provider":"codex"}`
+	InsertLogWithDetails("sk-target", "Primary", "gpt-5.4", "codex", "Codex", "auth-1", false, now, 123, 45, TokenStats{
+		InputTokens: 11, OutputTokens: 22, TotalTokens: 33,
+	}, `{"messages":[{"role":"user","content":"hello"}]}`, `{"id":"resp_1"}`, details)
+
+	before, err := GetRequestLogStorageBytes()
+	if err != nil {
+		t.Fatalf("GetRequestLogStorageBytes() before error = %v", err)
+	}
+	if before <= 0 {
+		t.Fatalf("expected request log storage bytes before cleanup, got %d", before)
+	}
+
+	result, err := ClearRequestLogs(ClearRequestLogsOptions{
+		ClearBodyContent:   true,
+		ClearDetailContent: true,
+	})
+	if err != nil {
+		t.Fatalf("ClearRequestLogs() error = %v", err)
+	}
+	if result.DeletedLogs != 0 {
+		t.Fatalf("DeletedLogs = %d, want 0", result.DeletedLogs)
+	}
+
+	rows, err := QueryLogs(LogQueryParams{Page: 1, Size: 10, Days: 1})
+	if err != nil {
+		t.Fatalf("QueryLogs() after cleanup error = %v", err)
+	}
+	if len(rows.Items) != 1 {
+		t.Fatalf("expected 1 request log row after cleanup, got %d", len(rows.Items))
+	}
+	if rows.Items[0].HasContent {
+		t.Fatalf("HasContent = true, want false after content cleanup")
+	}
+
+	content, err := QueryLogContent(rows.Items[0].ID)
+	if err != nil {
+		t.Fatalf("QueryLogContent() after cleanup error = %v", err)
+	}
+	if content.InputContent != "" || content.OutputContent != "" {
+		t.Fatalf("expected empty input/output content after cleanup, got input=%q output=%q", content.InputContent, content.OutputContent)
+	}
+
+	part, err := QueryLogContentPart(rows.Items[0].ID, "details")
+	if err != nil {
+		t.Fatalf("QueryLogContentPart(details) after cleanup error = %v", err)
+	}
+	if part.Content != "" {
+		t.Fatalf("expected empty details content after cleanup, got %q", part.Content)
+	}
+
+	after, err := GetRequestLogStorageBytes()
+	if err != nil {
+		t.Fatalf("GetRequestLogStorageBytes() after error = %v", err)
+	}
+	if after != 0 {
+		t.Fatalf("expected request log storage bytes to be 0 after cleanup, got %d", after)
+	}
+}

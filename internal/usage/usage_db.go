@@ -73,8 +73,17 @@ type LogStats struct {
 }
 
 type ClearRequestLogsResult struct {
-	DeletedLogs     int64 `json:"deleted_logs"`
-	DeletedContents int64 `json:"deleted_contents"`
+	DeletedLogs       int64 `json:"deleted_logs"`
+	DeletedContents   int64 `json:"deleted_contents"`
+	ClearedBodyRows   int64 `json:"cleared_body_rows"`
+	ClearedDetailRows int64 `json:"cleared_detail_rows"`
+	ClearedLegacyRows int64 `json:"cleared_legacy_rows"`
+}
+
+type ClearRequestLogsOptions struct {
+	ClearBodyContent    bool `json:"clear_body_content"`
+	ClearDetailContent  bool `json:"clear_detail_content"`
+	ClearRequestRecords bool `json:"clear_request_records"`
 }
 
 type DailyCountPoint struct {
@@ -625,12 +634,37 @@ func DeleteLogsByAPIKey(apiKey string) (int64, error) {
 	return deleted, nil
 }
 
-// ClearAllRequestLogs removes all request_logs and request_log_content rows
-// while leaving other SQLite-backed management data untouched.
-func ClearAllRequestLogs() (ClearRequestLogsResult, error) {
+func rowsAffected(result sql.Result) (int64, error) {
+	if result == nil {
+		return 0, nil
+	}
+	value, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return value, nil
+}
+
+func normalizeClearRequestLogsOptions(options ClearRequestLogsOptions) (ClearRequestLogsOptions, error) {
+	if options.ClearRequestRecords {
+		options.ClearBodyContent = true
+		options.ClearDetailContent = true
+	}
+	if !options.ClearBodyContent && !options.ClearDetailContent && !options.ClearRequestRecords {
+		return ClearRequestLogsOptions{}, fmt.Errorf("usage: at least one cleanup option must be selected")
+	}
+	return options, nil
+}
+
+// ClearRequestLogs selectively clears request log bodies, details, and/or full request records.
+func ClearRequestLogs(options ClearRequestLogsOptions) (ClearRequestLogsResult, error) {
 	db := getDB()
 	if db == nil {
 		return ClearRequestLogsResult{}, fmt.Errorf("usage: database not initialised")
+	}
+	options, err := normalizeClearRequestLogsOptions(options)
+	if err != nil {
+		return ClearRequestLogsResult{}, err
 	}
 
 	tx, err := db.Begin()
@@ -645,22 +679,74 @@ func ClearAllRequestLogs() (ClearRequestLogsResult, error) {
 		}
 	}()
 
-	contentResult, err := tx.Exec("DELETE FROM request_log_content")
-	if err != nil {
-		return ClearRequestLogsResult{}, fmt.Errorf("usage: clear request_log_content: %w", err)
-	}
-	logResult, err := tx.Exec("DELETE FROM request_logs")
-	if err != nil {
-		return ClearRequestLogsResult{}, fmt.Errorf("usage: clear request_logs: %w", err)
-	}
+	var result ClearRequestLogsResult
 
-	deletedContents, err := contentResult.RowsAffected()
-	if err != nil {
-		return ClearRequestLogsResult{}, fmt.Errorf("usage: content affected rows: %w", err)
-	}
-	deletedLogs, err := logResult.RowsAffected()
-	if err != nil {
-		return ClearRequestLogsResult{}, fmt.Errorf("usage: log affected rows: %w", err)
+	if options.ClearRequestRecords {
+		contentResult, err := tx.Exec("DELETE FROM request_log_content")
+		if err != nil {
+			return ClearRequestLogsResult{}, fmt.Errorf("usage: clear request_log_content: %w", err)
+		}
+		logResult, err := tx.Exec("DELETE FROM request_logs")
+		if err != nil {
+			return ClearRequestLogsResult{}, fmt.Errorf("usage: clear request_logs: %w", err)
+		}
+
+		result.DeletedContents, err = rowsAffected(contentResult)
+		if err != nil {
+			return ClearRequestLogsResult{}, fmt.Errorf("usage: content affected rows: %w", err)
+		}
+		result.DeletedLogs, err = rowsAffected(logResult)
+		if err != nil {
+			return ClearRequestLogsResult{}, fmt.Errorf("usage: log affected rows: %w", err)
+		}
+	} else {
+		if options.ClearBodyContent {
+			contentResult, err := tx.Exec(
+				"UPDATE request_log_content SET input_content = X'', output_content = X'' WHERE length(input_content) > 0 OR length(output_content) > 0",
+			)
+			if err != nil {
+				return ClearRequestLogsResult{}, fmt.Errorf("usage: clear request_log_content bodies: %w", err)
+			}
+			result.ClearedBodyRows, err = rowsAffected(contentResult)
+			if err != nil {
+				return ClearRequestLogsResult{}, fmt.Errorf("usage: body affected rows: %w", err)
+			}
+
+			legacyResult, err := tx.Exec(
+				"UPDATE request_logs SET input_content = '', output_content = '' WHERE length(input_content) > 0 OR length(output_content) > 0",
+			)
+			if err != nil {
+				return ClearRequestLogsResult{}, fmt.Errorf("usage: clear legacy request log bodies: %w", err)
+			}
+			result.ClearedLegacyRows, err = rowsAffected(legacyResult)
+			if err != nil {
+				return ClearRequestLogsResult{}, fmt.Errorf("usage: legacy affected rows: %w", err)
+			}
+		}
+
+		if options.ClearDetailContent {
+			detailResult, err := tx.Exec(
+				"UPDATE request_log_content SET detail_content = X'' WHERE length(detail_content) > 0",
+			)
+			if err != nil {
+				return ClearRequestLogsResult{}, fmt.Errorf("usage: clear request_log_content details: %w", err)
+			}
+			result.ClearedDetailRows, err = rowsAffected(detailResult)
+			if err != nil {
+				return ClearRequestLogsResult{}, fmt.Errorf("usage: detail affected rows: %w", err)
+			}
+		}
+
+		deleteEmptyRowsResult, err := tx.Exec(
+			"DELETE FROM request_log_content WHERE length(input_content) = 0 AND length(output_content) = 0 AND length(detail_content) = 0",
+		)
+		if err != nil {
+			return ClearRequestLogsResult{}, fmt.Errorf("usage: delete empty request_log_content rows: %w", err)
+		}
+		result.DeletedContents, err = rowsAffected(deleteEmptyRowsResult)
+		if err != nil {
+			return ClearRequestLogsResult{}, fmt.Errorf("usage: deleted empty content rows: %w", err)
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -672,14 +758,24 @@ func ClearAllRequestLogs() (ClearRequestLogsResult, error) {
 		log.Warnf("usage: vacuum after request log cleanup failed: %v", err)
 	}
 
-	if deletedLogs > 0 || deletedContents > 0 {
-		log.Infof("usage: cleared request logs (logs=%d contents=%d)", deletedLogs, deletedContents)
+	if result.DeletedLogs > 0 || result.DeletedContents > 0 || result.ClearedBodyRows > 0 || result.ClearedDetailRows > 0 || result.ClearedLegacyRows > 0 {
+		log.Infof(
+			"usage: cleared request logs (logs=%d contents=%d body_rows=%d detail_rows=%d legacy_rows=%d)",
+			result.DeletedLogs,
+			result.DeletedContents,
+			result.ClearedBodyRows,
+			result.ClearedDetailRows,
+			result.ClearedLegacyRows,
+		)
 	}
 
-	return ClearRequestLogsResult{
-		DeletedLogs:     deletedLogs,
-		DeletedContents: deletedContents,
-	}, nil
+	return result, nil
+}
+
+// ClearAllRequestLogs removes all request_logs and request_log_content rows
+// while leaving other SQLite-backed management data untouched.
+func ClearAllRequestLogs() (ClearRequestLogsResult, error) {
+	return ClearRequestLogs(ClearRequestLogsOptions{ClearRequestRecords: true})
 }
 
 // DashboardKPI holds the aggregated KPI data needed by the dashboard page.
