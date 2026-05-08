@@ -629,6 +629,8 @@ func (s *Server) registerManagementRoutes() {
 		mgmt.PUT("/model-openrouter-sync", s.mgmt.PutOpenRouterModelSync)
 		mgmt.POST("/model-openrouter-sync/run", s.mgmt.PostOpenRouterModelSyncRun)
 		mgmt.GET("/channel-groups", s.mgmt.GetChannelGroups)
+		mgmt.GET("/ccswitch-import-configs", s.mgmt.GetCcSwitchImportConfigs)
+		mgmt.PUT("/ccswitch-import-configs", s.mgmt.PutCcSwitchImportConfigs)
 		mgmt.GET("/routing-config", s.mgmt.GetRoutingConfig)
 		mgmt.PUT("/routing-config", s.mgmt.PutRoutingConfig)
 		mgmt.GET("/identity-fingerprint", s.mgmt.GetIdentityFingerprint)
