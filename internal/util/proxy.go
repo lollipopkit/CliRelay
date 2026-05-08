@@ -34,12 +34,16 @@ func NewHTTPClient(timeout time.Duration) *http.Client {
 
 func NewDefaultTransport(preferIPv4 bool) *http.Transport {
 	dialer := &net.Dialer{Timeout: DefaultHTTPDialTimeout, KeepAlive: 30 * time.Second}
+	dialContext := dialer.DialContext
 	if preferIPv4 {
 		dialer.LocalAddr = &net.TCPAddr{IP: net.IPv4zero}
+		dialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return dialer.DialContext(ctx, "tcp4", addr)
+		}
 	}
 	return &http.Transport{
 		Proxy:                 http.ProxyFromEnvironment,
-		DialContext:           dialer.DialContext,
+		DialContext:           dialContext,
 		ForceAttemptHTTP2:     true,
 		MaxIdleConns:          100,
 		IdleConnTimeout:       DefaultHTTPIdleConnTimeout,
