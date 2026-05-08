@@ -58,5 +58,9 @@ func newProxyAwareHTTPClient(ctx context.Context, cfg *config.Config, auth *clip
 		httpClient.Transport = rt
 	}
 
+	if httpClient.Transport == nil {
+		httpClient.Transport = util.NewDefaultTransport(cfg != nil && cfg.PreferIPv4)
+	}
+
 	return httpClient
 }
