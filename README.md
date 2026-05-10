@@ -123,74 +123,6 @@ CliRelay turns AI CLI subscriptions, OAuth credentials, API keys, and compatible
 | 🗃️ **Pluggable Auth/Config Backends** | Local files by default, with optional PostgreSQL, Git, or S3-compatible object storage backends for config/auth persistence |
 | 📦 **Config Snapshots** | Import/export entire system configuration as JSON for backup and migration |
 
-## 📸 Management Panel Preview
-
-CliRelay can expose a built-in web control panel at `/manage`. The server can host bundled SPA assets or fall back to synced management assets from the configured panel repository.
-
-The gallery below uses the latest supplied screenshots, covering the current end-to-end management workflow.
-
-### Dashboard, Locale & Theme
-
-| Home overview | Operations overview |
-| :------------ | :------------------ |
-| <img src="docs/images/readme-showcase/home-overview-1.png" width="100%" alt="CliRelay dashboard overview" /> | <img src="docs/images/readme-showcase/home-overview-2.png" width="100%" alt="CliRelay operations dashboard" /> |
-
-| Chinese / English interface | Dark mode |
-| :-------------------------- | :-------- |
-| <img src="docs/images/readme-showcase/home-i18n.png" width="100%" alt="Chinese and English management panel locale" /> | <img src="docs/images/readme-showcase/dark-mode.png" width="100%" alt="Management panel dark mode" /> |
-
-### Monitoring, Logs & Self-Service
-
-| Monitor center | Request logs |
-| :------------- | :----------- |
-| <img src="docs/images/readme-showcase/monitor-center.png" width="100%" alt="Monitor center charts and request metrics" /> | <img src="docs/images/readme-showcase/request-logs.png" width="100%" alt="Request log table with filters" /> |
-
-| Request details | Log query system |
-| :-------------- | :--------------- |
-| <img src="docs/images/readme-showcase/request-details.png" width="100%" alt="Request details viewer" /> | <img src="docs/images/readme-showcase/log-query-system.png" width="100%" alt="Log query system" /> |
-
-| API key lookup |
-| :------------- |
-| <img src="docs/images/readme-showcase/api-key-lookup.png" width="100%" alt="Public API key lookup page" /> |
-
-### Auth, Identity & Access
-
-| Unified OAuth management | Identity fingerprints |
-| :----------------------- | :-------------------- |
-| <img src="docs/images/readme-showcase/oauth-management.png" width="100%" alt="Unified OAuth management" /> | <img src="docs/images/readme-showcase/identity-fingerprint-management.png" width="100%" alt="Identity fingerprint management" /> |
-
-| Team permissions | OAuth proxy assignment |
-| :--------------- | :--------------------- |
-| <img src="docs/images/readme-showcase/team-permissions.png" width="100%" alt="Team API key assignment and permissions" /> | <img src="docs/images/readme-showcase/proxy-config-for-oauth.png" width="100%" alt="Proxy configuration assigned to OAuth auth records" /> |
-
-### Channels, Routing & Configuration
-
-| Multi-channel API setup | Group routing and custom paths |
-| :---------------------- | :----------------------------- |
-| <img src="docs/images/readme-showcase/multi-channel-api-add.png" width="100%" alt="Add multiple API channels" /> | <img src="docs/images/readme-showcase/group-routing-custom-path.png" width="100%" alt="Channel group routing and custom path configuration" /> |
-
-| Visual config | Upstream debug passthrough |
-| :------------ | :------------------------- |
-| <img src="docs/images/readme-showcase/visual-config.png" width="100%" alt="Visual configuration editor" /> | <img src="docs/images/readme-showcase/upstream-debug-passthrough.png" width="100%" alt="Debug passthrough content sent to upstream" /> |
-
-| CC Switch import |
-| :--------------- |
-| <img src="docs/images/readme-showcase/cc-switch-import.png" width="100%" alt="Configurable CC Switch import" /> |
-
-### Models, Image Generation & Updates
-
-| OpenRouter model sync | Custom model maintenance |
-| :-------------------- | :----------------------- |
-| <img src="docs/images/readme-showcase/model-openrouter-sync.png" width="100%" alt="OpenRouter model ID and pricing sync" /> | <img src="docs/images/readme-showcase/custom-model-maintenance.png" width="100%" alt="Custom model maintenance" /> |
-
-| Image generation config | Online update flow |
-| :---------------------- | :----------------- |
-| <img src="docs/images/readme-showcase/image-generation-config.png" width="100%" alt="Image generation configuration" /> | <img src="docs/images/readme-showcase/online-update.png" width="100%" alt="Online update mechanism" /> |
-
-| System information |
-| :----------------- |
-| <img src="docs/images/readme-showcase/system-info.png" width="100%" alt="System information page" /> |
-
 ## 🏗️ Supported Providers
 
 | Provider / Channel | Auth | Notes |
@@ -223,6 +155,32 @@ Edit `config.yaml` to add your API keys or OAuth credentials, then restart the s
 
 ```bash
 docker compose restart cli-proxy-api
+```
+
+### 🛠️ Local Development (No Docker)
+
+Use local `go run` for fast development without containers:
+
+```bash
+make dev-up
+```
+
+Common commands:
+
+- `make dev-up`: start server in background using `go run ./cmd/server` and write logs to `.tmp/cli-relay-dev.log`
+- `make dev-restart`: stop current dev process then start again
+- `make dev-down`: stop background dev process started by `dev-up`
+
+You can override runtime parameters when needed:
+
+```bash
+DEV_CMD="go run ./cmd/server -standalone" make dev-up
+```
+
+To run with your own config file, set `DEV_CONFIG`:
+
+```bash
+DEV_CONFIG=config.yaml make dev-up
 ```
 
 By default, client API routes (`/v1`, `/v1beta`) require an API key. To run without client keys, set `allow-unauthenticated: true` in `config.yaml` (not recommended for production).

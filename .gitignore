@@ -2,6 +2,8 @@
 cli-proxy-api
 *.exe
 
+.tmp/
+
 # Configuration
 config.yaml
 .env

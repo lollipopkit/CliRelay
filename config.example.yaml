@@ -1,7 +1,6 @@
 # Server host/interface to bind to. Default is empty ("") to bind all interfaces (IPv4 + IPv6).
 # Use "127.0.0.1" or "localhost" to restrict access to local machine only.
 host: ""
-
 # OAuth client credentials for provider login flows.
 # Gemini CLI / Code Assist and Antigravity OAuth use their official OAuth clients by default.
 # Set credentials only when you intentionally want to override those clients.
@@ -15,27 +14,22 @@ oauth-clients:
   antigravity:
     client-id: ""
     client-secret: ""
-
 # Server port
 port: 8317
-
 # Project timezone (IANA name). Affects "today" boundaries and day-based aggregation in monitoring/usage pages.
 # Examples: "Asia/Shanghai", "UTC", "America/Los_Angeles"
 timezone: ""
-
 # Redis settings for usage statistics persistence
 redis:
   enable: false
   addr: "127.0.0.1:6379"
   password: ""
   db: 0
-
 # TLS settings for HTTPS. When enabled, the server listens with the provided certificate and key.
 tls:
   enable: false
   cert: ""
   key: ""
-
 # Explicit browser origins allowed to call API routes cross-origin.
 # Leave empty to disable cross-origin browser access by default.
 # Chrome extension origins (`chrome-extension://<extension-id>`) are allowed by default.
@@ -44,156 +38,88 @@ tls:
 #   - "https://admin.example.com"
 #   - "http://localhost:5173"
 cors-allow-origins: []
-
 # Management API settings
 remote-management:
   # Whether to allow remote (non-localhost) management access.
   # When false, only localhost can access management endpoints (a key is still required).
   allow-remote: false
-
   # Management key. If a plaintext value is provided here, it will be hashed on startup.
   # All management requests (even from localhost) require this key.
   # Leave empty to disable the Management API entirely (404 for all /v0/management routes).
   secret-key: ""
-
   # Disable the bundled management control panel asset download and HTTP route when true.
   disable-control-panel: false
-
 # Docker-first automatic update checks.
 auto-update:
   enabled: true
   # main is the default stable update channel; use dev to follow dev images.
   channel: main
   repository: https://github.com/kittors/CliRelay
-
 # Authentication directory (supports ~ for home directory).
 # In Docker/cloud deployments, AUTH_PATH overrides this value at runtime.
 auth-dir: "~/.cli-proxy-api"
-
-# API keys for authentication
-api-keys:
-  - "your-api-key-1"
-  - "your-api-key-2"
-  - "your-api-key-3"
-
 # When true, allow /v1 and /v1beta requests without API keys when no keys/providers
 # are configured. Not recommended for production.
 allow-unauthenticated: false
-
 # Enable debug logging
 debug: false
-
 # Enable pprof HTTP debug server (host:port). Keep it bound to localhost for safety.
 pprof:
   enable: false
   addr: "127.0.0.1:8316"
   allow-remote: false
-
 # When true, disable high-overhead HTTP middleware features to reduce per-request memory usage under high concurrency.
 commercial-mode: false
-
 # When true, write application logs to rotating files instead of stdout
 logging-to-file: false
-
 # Maximum total size (MB) of log files under the logs directory. When exceeded, the oldest log
 # files are deleted until within the limit. Set to 0 to disable.
 logs-max-total-size-mb: 0
-
 # Maximum number of error log files retained when request logging is disabled.
 # When exceeded, the oldest error log files are deleted. Default is 10. Set to 0 to disable cleanup.
 error-logs-max-files: 10
-
 # When false, disable in-memory usage statistics aggregation
 usage-statistics-enabled: false
-
 # Detailed request/response body retention settings for usage.db.
 request-log-storage:
   # When true, persist full request and response bodies in SQLite.
   # When false, stop writing new content while preserving existing stored content.
   store-content: true
-
   # Keep full request/response bodies for the last N days.
   # Set to 0 to retain full content indefinitely.
   # The lightweight request metadata rows are retained separately.
   content-retention-days: 30
-
   # Run background content cleanup every N minutes.
   cleanup-interval-minutes: 1440
-
   # Cap the total size of stored request/response bodies (MB).
   # When exceeded, the oldest full bodies are pruned early even if their retention days are not over.
   # Default is 1024 (≈1GB). Set to 0 to disable the size cap.
   max-total-size-mb: 1024
-
   # Reclaim disk space after cleanup. This can be I/O intensive on very large databases.
   vacuum-on-cleanup: true
-
 # Proxy URL. Supports socks5/http/https protocols. Example: socks5://user:pass@192.168.1.1:1080/
 proxy-url: ""
-
 # When true, unprefixed model requests only use credentials without a prefix (except when prefix == model name).
 force-model-prefix: false
-
 # When true, forward filtered upstream response headers to downstream clients.
 # Default is false (disabled).
 passthrough-headers: false
-
 # Number of times to retry a request. Retries will occur if the HTTP response code is 403, 408, 500, 502, 503, or 504.
 request-retry: 3
-
 # Maximum wait time in seconds for a cooled-down credential before triggering a retry.
 max-retry-interval: 30
-
 # Quota exceeded behavior
 quota-exceeded:
   switch-project: true # Whether to automatically switch to another project when a quota is exceeded
   switch-preview-model: true # Whether to automatically switch to a preview model when a quota is exceeded
-
-# Routing strategy for selecting credentials when multiple match.
-routing:
-  strategy: "round-robin" # round-robin (default), fill-first
-  include-default-group: true
-  # channel-groups:
-  #   - name: "pro"
-  #     description: "Paid channels"
-  #     priority: 100
-  #     match:
-  #       prefixes: ["pro"]
-  #   - name: "team-a"
-  #     description: "Team A channels"
-  #     match:
-  #       prefixes: ["team-a"]
-  #       channels: ["Team A Codex"]
-  # path-routes:
-  #   - path: "/pro"
-  #     group: "pro"
-  #     strip-prefix: true
-  #     fallback: "none"
-  #   - path: "/team-a"
-  #     group: "team-a"
-  #     strip-prefix: true
-  #     fallback: "default"
-
-# Optional client API keys with per-key permissions. Empty allowed-* arrays mean "no restriction".
-# api-key-entries:
-#   - key: "sk-user-pro"
-#     name: "Pro User"
-#     allowed-channel-groups: ["pro"]
-#   - key: "sk-team-a"
-#     name: "Team A"
-#     allowed-channel-groups: ["team-a", "pro"]
-#     allowed-channels: ["Team A Codex"]
-
 # When true, enable authentication for the WebSocket API (/v1/ws).
 ws-auth: false
-
 # When > 0, emit blank lines every N seconds for non-streaming responses to prevent idle timeouts.
 nonstream-keepalive-interval: 0
-
 # Streaming behavior (SSE keep-alives + safe bootstrap retries).
 streaming:
-  keepalive-seconds: 15   # Default: 15. Set < 0 to disable keep-alives.
-  bootstrap-retries: 1    # Default: 1. Retries before first byte is sent.
+  keepalive-seconds: 15 # Default: 15. Set < 0 to disable keep-alives.
+  bootstrap-retries: 1 # Default: 1. Retries before first byte is sent.
 
 # Gemini API keys
 # gemini-api-key:
