@@ -111,7 +111,6 @@ CliRelay turns AI CLI subscriptions, OAuth credentials, API keys, and compatible
 | 🌐 **Chinese / English UI** | Built-in i18n for the management panel and Compose/TUI language selection |
 | 🌙 **Dark Mode** | Full dark theme for long-running operational sessions |
 | 🧬 **Visual Config Editor** | Edit runtime config visually or inspect source YAML when you need exact control |
-| 📥 **CC Switch Import** | Import cc-switch style configuration into the managed model/channel workspace |
 
 ### 🗄️ Data Persistence
 

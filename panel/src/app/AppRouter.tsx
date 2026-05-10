@@ -42,11 +42,6 @@ const ApiKeyPermissionsPage = lazy(() =>
     default: m.ApiKeyPermissionsPage,
   })),
 );
-const CcSwitchImportSettingsPage = lazy(() =>
-  import("@/modules/ccswitch/CcSwitchImportSettingsPage").then((m) => ({
-    default: m.CcSwitchImportSettingsPage,
-  })),
-);
 const ChannelGroupsPage = lazy(() =>
   import("@/modules/channel-groups/ChannelGroupsPage").then((m) => ({
     default: m.ChannelGroupsPage,
@@ -119,14 +114,6 @@ export function AppRouter() {
                             <Route
                               path="/manage/api-key-permissions"
                               element={<Navigate to="/api-key-permissions" replace />}
-                            />
-                            <Route
-                              path="/ccswitch-import-settings"
-                              element={<CcSwitchImportSettingsPage />}
-                            />
-                            <Route
-                              path="/manage/ccswitch-import-settings"
-                              element={<Navigate to="/ccswitch-import-settings" replace />}
                             />
                             <Route path="/image-generation" element={<ImageGenerationPage />} />
                             <Route path="/channel-groups" element={<ChannelGroupsPage />} />

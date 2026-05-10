@@ -1,19 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Layers, RefreshCw, Search } from "lucide-react";
-import { detectApiBaseFromLocation } from "@/lib/connection";
-import { ccSwitchImportConfigsApi } from "@/lib/http/apis/ccswitch-import-configs";
-import { CcSwitchImportOptions } from "@/modules/ccswitch/CcSwitchImportOptions";
-import {
-  buildCcSwitchImportUrl,
-  buildCcSwitchProviderName,
-  openCcSwitchImportUrl,
-  type CcSwitchClientType,
-} from "@/modules/ccswitch/ccswitchImport";
-import { deriveCcSwitchImportSettingsFromConfigList } from "@/modules/ccswitch/ccswitchImportConfigList";
 import { Card } from "@/modules/ui/Card";
 import { TextInput } from "@/modules/ui/Input";
-import { useToast } from "@/modules/ui/ToastProvider";
 
 // Vendor SVG icons
 import iconClaude from "@/assets/icons/claude.svg";
@@ -196,39 +185,14 @@ export function ModelsTabContent({
   error,
   searchFilter,
   onSearchChange,
-  apiKey,
 }: {
   models: string[];
   loading: boolean;
   error: string | null;
   searchFilter: string;
   onSearchChange: (value: string) => void;
-  apiKey?: string;
 }) {
   const { t } = useTranslation();
-  const { notify } = useToast();
-  const [ccSwitchImportSettings, setCcSwitchImportSettings] = useState(() =>
-    deriveCcSwitchImportSettingsFromConfigList([]),
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-
-    ccSwitchImportConfigsApi
-      .list()
-      .then((configs) => {
-        if (cancelled) return;
-        setCcSwitchImportSettings(deriveCcSwitchImportSettingsFromConfigList(configs));
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setCcSwitchImportSettings(deriveCcSwitchImportSettingsFromConfigList([]));
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const filteredModels = useMemo(() => {
     const needle = searchFilter.trim().toLowerCase();
@@ -252,25 +216,6 @@ export function ModelsTabContent({
     return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
   }, [models, t]);
 
-  const handleImportToCcSwitch = (clientType: CcSwitchClientType) => {
-    const key = String(apiKey ?? "").trim();
-    if (!key) return;
-
-    const url = buildCcSwitchImportUrl({
-      apiKey: key,
-      baseUrl: detectApiBaseFromLocation(),
-      clientType,
-      providerName: buildCcSwitchProviderName({ clientType }),
-      models,
-      settings: ccSwitchImportSettings,
-    });
-
-    openCcSwitchImportUrl(url, {
-      onProtocolUnavailable: () =>
-        notify({ type: "error", message: t("ccswitch.protocol_unavailable") }),
-    });
-  };
-
   return (
     <Card padding="none" className="overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-3.5 dark:border-neutral-800">
@@ -287,15 +232,6 @@ export function ModelsTabContent({
           ) : null}
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {apiKey ? (
-            <CcSwitchImportOptions
-              t={t}
-              models={models}
-              settings={ccSwitchImportSettings}
-              compact
-              onSelect={handleImportToCcSwitch}
-            />
-          ) : null}
           <TextInput
             value={searchFilter}
             onChange={(e) => onSearchChange(e.target.value)}

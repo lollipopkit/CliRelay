@@ -334,8 +334,6 @@ func InitDB(dbPath string, storageCfg config.RequestLogStorageConfig, loc *time.
 	initAPIKeysTable(db)
 	log.Debugf("usage: initializing api_key_permission_profiles table")
 	initAPIKeyPermissionProfilesTable(db)
-	log.Debugf("usage: initializing ccswitch_import_configs table")
-	initCcSwitchImportConfigsTable(db)
 	log.Debugf("usage: initializing routing_config table")
 	initRoutingConfigTable(db)
 	log.Debugf("usage: initializing proxy_pool table")

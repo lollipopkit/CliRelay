@@ -23,14 +23,6 @@ describe("AppRouter", () => {
       /path="\/manage\/identity-fingerprint"[\s\S]*?element=\{<Navigate to="\/identity-fingerprint" replace \/>\}/,
     );
 
-    expect(source).toContain("CcSwitchImportSettingsPage");
-    expect(source).toMatch(
-      /<Route\s+path="\/ccswitch-import-settings"\s+element=\{<CcSwitchImportSettingsPage \/>\}\s*\/>/s,
-    );
-    expect(source).toMatch(
-      /path="\/manage\/ccswitch-import-settings"[\s\S]*?element=\{<Navigate to="\/ccswitch-import-settings" replace \/>\}/,
-    );
-
     expect(source).toContain("ApiKeyPermissionsPage");
     expect(source).toMatch(
       /<Route\s+path="\/api-key-permissions"\s+element=\{<ApiKeyPermissionsPage \/>\}\s*\/>/s,

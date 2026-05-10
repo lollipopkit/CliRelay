@@ -9,10 +9,6 @@ import {
   resolveEntryPermissionProfileId,
   type ApiKeyPermissionProfile,
 } from "@/lib/http/apis/api-key-permission-profiles";
-import { ccSwitchImportConfigsApi } from "@/lib/http/apis/ccswitch-import-configs";
-import type { ChannelGroupItem } from "@/lib/http/apis/channel-groups";
-import { detectApiBaseFromLocation } from "@/lib/connection";
-import { useOptionalAuth } from "@/modules/auth/AuthProvider";
 import {
   generateApiKey,
   makeEmptyApiKeyForm,
@@ -29,35 +25,9 @@ import { ApiKeyFormModal } from "@/modules/api-keys/components/ApiKeyFormModal";
 import { ApiKeyUsageModal } from "@/modules/api-keys/components/ApiKeyUsageModal";
 import { useApiKeyPermissionOptions } from "@/modules/api-keys/hooks/useApiKeyPermissionOptions";
 import { useApiKeyUsageView } from "@/modules/api-keys/hooks/useApiKeyUsageView";
-import { CcSwitchImportCardList } from "@/modules/api-keys/components/CcSwitchImportCardList";
-import { buildCcSwitchImportUrl, openCcSwitchImportUrl } from "@/modules/ccswitch/ccswitchImport";
-import {
-  normalizeCcSwitchClaudeAuthField,
-  normalizeCcSwitchImportSettings,
-} from "@/modules/ccswitch/ccswitchImportSettings";
-import {
-  deriveCcSwitchImportSettingsFromConfigList,
-  type CcSwitchImportConfigListItem,
-} from "@/modules/ccswitch/ccswitchImportConfigList";
 import { LogContentModal } from "@/modules/monitor/LogContentModal";
 import { ErrorDetailModal } from "@/modules/monitor/ErrorDetailModal";
 import type { ApiKeyFormValues } from "@/modules/api-keys/types";
-
-function normalizeRoutePath(path: string): string {
-  const trimmed = String(path ?? "").trim();
-  if (!trimmed || trimmed === "/") return "";
-  return `/${trimmed.replace(/^\/+|\/+$/g, "")}`;
-}
-
-function appendRoutePath(baseUrl: string, path: string): string {
-  const normalizedBase = baseUrl.replace(/\/+$/, "");
-  const normalizedPath = normalizeRoutePath(path);
-  if (!normalizedPath) return normalizedBase;
-  if (normalizedBase.toLowerCase().endsWith(normalizedPath.toLowerCase())) {
-    return normalizedBase;
-  }
-  return `${normalizedBase}${normalizedPath}`;
-}
 
 async function copyTextToClipboard(text: string): Promise<boolean> {
   try {
@@ -86,7 +56,6 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
 export function ApiKeysPage() {
   const { t } = useTranslation();
   const { notify } = useToast();
-  const auth = useOptionalAuth();
 
   const [entries, setEntries] = useState<ApiKeyEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,15 +63,10 @@ export function ApiKeysPage() {
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
   const [deleteLogsOnDelete, setDeleteLogsOnDelete] = useState(true);
-  const [ccSwitchImportEntry, setCcSwitchImportEntry] = useState<ApiKeyEntry | null>(null);
-  const [ccSwitchImportConfigs, setCcSwitchImportConfigs] = useState<
-    CcSwitchImportConfigListItem[]
-  >([]);
   const [saving, setSaving] = useState(false);
   const [permissionProfiles, setPermissionProfiles] = useState<ApiKeyPermissionProfile[]>([]);
   const [form, setForm] = useState<ApiKeyFormValues>(() => makeEmptyApiKeyForm());
-  const { channelGroupItems, channelGroupByName, fetchModelOptions, refreshPermissionOptions } =
-    useApiKeyPermissionOptions();
+  const { channelGroupByName, refreshPermissionOptions } = useApiKeyPermissionOptions();
   const {
     usageViewKey,
     usageViewName,
@@ -146,14 +110,12 @@ export function ApiKeysPage() {
   const loadEntries = useCallback(async () => {
     setLoading(true);
     try {
-      const [entriesData, legacyKeys, profilesData, configsData] = await Promise.all([
+      const [entriesData, legacyKeys, profilesData] = await Promise.all([
         apiKeyEntriesApi.list(),
         apiKeysApi.list().catch(() => [] as string[]),
         apiKeyPermissionProfilesApi.list().catch(() => [] as ApiKeyPermissionProfile[]),
-        ccSwitchImportConfigsApi.list().catch(() => [] as CcSwitchImportConfigListItem[]),
       ]);
       setPermissionProfiles(profilesData);
-      setCcSwitchImportConfigs(configsData);
 
       // Auto-migrate: old api-keys not in api-key-entries get added as unnamed entries
       const entryKeySet = new Set(entriesData.map((e) => e.key));
@@ -411,98 +373,6 @@ export function ApiKeysPage() {
     notify({ type: "error", message: t("api_keys_page.copy_failed") });
   };
 
-  const compatibleConfigs = useMemo(() => {
-    if (!ccSwitchImportEntry) return [];
-    const entryGroups = (ccSwitchImportEntry["allowed-channel-groups"] ?? [])
-      .map((g) =>
-        String(g ?? "")
-          .trim()
-          .toLowerCase(),
-      )
-      .filter(Boolean);
-    return ccSwitchImportConfigs.filter((config) => {
-      if (entryGroups.length === 0) return true;
-      return config.allowedChannelGroups.some((g) => entryGroups.includes(g));
-    });
-  }, [ccSwitchImportEntry, ccSwitchImportConfigs]);
-
-  const handleOpenCcSwitchImport = useCallback((entry: ApiKeyEntry) => {
-    setCcSwitchImportEntry(entry);
-  }, []);
-
-  const handleImportWithConfig = useCallback(
-    (config: CcSwitchImportConfigListItem) => {
-      if (!ccSwitchImportEntry) return;
-
-      const entryGroups = (ccSwitchImportEntry["allowed-channel-groups"] ?? [])
-        .map((g) =>
-          String(g ?? "")
-            .trim()
-            .toLowerCase(),
-        )
-        .filter(Boolean);
-      const matchingGroup =
-        config.allowedChannelGroups.find((g) => entryGroups.includes(g)) ??
-        config.allowedChannelGroups[0] ??
-        "";
-      const groupItem = channelGroupItems.find(
-        (g) =>
-          String(g.name ?? "")
-            .trim()
-            .toLowerCase() === matchingGroup,
-      );
-      const routePath = Array.isArray(groupItem?.["path-routes"])
-        ? groupItem["path-routes"][0]
-        : "";
-      const baseApiUrl = auth?.state.apiBase || detectApiBaseFromLocation();
-      const baseUrl = appendRoutePath(baseApiUrl, routePath || "");
-
-      const settings =
-        ccSwitchImportConfigs.length > 0
-          ? deriveCcSwitchImportSettingsFromConfigList(ccSwitchImportConfigs)
-          : normalizeCcSwitchImportSettings();
-      const clientSettings = {
-        ...settings[config.clientType],
-        endpointPath: config.endpointPath ?? settings[config.clientType].endpointPath,
-        usageAutoInterval:
-          config.usageAutoInterval ?? settings[config.clientType].usageAutoInterval,
-        defaultModel: config.defaultModel ?? settings[config.clientType].defaultModel,
-      };
-      const importSettings =
-        config.clientType === "claude"
-          ? {
-              ...settings,
-              claude: {
-                ...clientSettings,
-                apiKeyField: normalizeCcSwitchClaudeAuthField(config.apiKeyField),
-              },
-            }
-          : {
-              ...settings,
-              [config.clientType]: clientSettings,
-            };
-
-      const url = buildCcSwitchImportUrl({
-        apiKey: ccSwitchImportEntry.key,
-        baseUrl,
-        clientType: config.clientType,
-        enabled: true,
-        providerName: config.providerName || ccSwitchImportEntry.name || "CliProxy",
-        model: config.defaultModel,
-        modelMappings: config.modelMappings,
-        models: [],
-        settings: importSettings,
-      });
-
-      openCcSwitchImportUrl(url, {
-        onProtocolUnavailable: () =>
-          notify({ type: "error", message: t("ccswitch.protocol_unavailable") }),
-      });
-      setCcSwitchImportEntry(null);
-    },
-    [ccSwitchImportEntry, ccSwitchImportConfigs, channelGroupItems, auth, notify, t],
-  );
-
   /* ─── column definitions ─── */
 
   const apiKeyColumns = useMemo(
@@ -512,7 +382,6 @@ export function ApiKeysPage() {
         onToggleDisable: (index) => void handleToggleDisable(index),
         onViewUsage: handleViewUsage,
         onCopy: (key) => void handleCopy(key),
-        onImportToCcSwitch: handleOpenCcSwitchImport,
         onEdit: handleOpenEdit,
         onDelete: handleOpenDelete,
       }),
@@ -520,7 +389,6 @@ export function ApiKeysPage() {
       handleToggleDisable,
       handleViewUsage,
       handleCopy,
-      handleOpenCcSwitchImport,
       handleOpenEdit,
       handleOpenDelete,
       t,
@@ -613,13 +481,6 @@ export function ApiKeysPage() {
           setDeleteLogsOnDelete(true);
         }}
         onConfirm={handleDelete}
-      />
-
-      <CcSwitchImportCardList
-        open={ccSwitchImportEntry !== null}
-        configs={compatibleConfigs}
-        onSelect={handleImportWithConfig}
-        onClose={() => setCcSwitchImportEntry(null)}
       />
 
       <ApiKeyUsageModal

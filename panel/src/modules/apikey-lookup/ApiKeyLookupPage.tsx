@@ -545,7 +545,6 @@ export function ApiKeyLookupPage() {
                   error={modelsError}
                   searchFilter={modelsSearchFilter}
                   onSearchChange={setModelsSearchFilter}
-                  apiKey={queriedKey}
                 />
               </Reveal>
             ) : null}
