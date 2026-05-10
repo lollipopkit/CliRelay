@@ -516,7 +516,7 @@ export function useAuthFilesFilesPresentation({
       {
         key: "name",
         label: t("auth_files.col_name"),
-        width: "w-96",
+        width: "w-64",
         render: (file) => (
           <div className="min-w-0">
             <p className="truncate font-mono text-xs text-slate-900 dark:text-white">
@@ -574,6 +574,94 @@ export function useAuthFilesFilesPresentation({
                 </span>
               ) : null}
             </div>
+          );
+        },
+      },
+      {
+        key: "quota",
+        label: t("auth_files.col_quota"),
+        width: "w-64",
+        overflowTooltip: false,
+        headerClassName: "text-center",
+        headerRender: () => (
+          <div className="flex items-center justify-center gap-2 normal-case">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-white/60">
+              {t("auth_files.col_quota")}
+            </span>
+            <Select
+              value={quotaPreviewMode}
+              onChange={(value) => setQuotaPreviewMode(value === "week" ? "week" : "5h")}
+              options={[
+                { value: "5h", label: t("auth_files.quota_preview_5h") },
+                { value: "week", label: t("auth_files.quota_preview_week") },
+              ]}
+              aria-label={t("auth_files.col_quota")}
+              className="w-[72px]"
+              variant="chip"
+            />
+          </div>
+        ),
+        render: (file) => {
+          const provider = resolveQuotaProvider(file);
+          if (!provider) {
+            return <span className="text-xs text-slate-400 dark:text-white/40">--</span>;
+          }
+
+          const state = quotaByFileName[file.name] ?? { status: "idle", items: [] };
+          const rawItems = Array.isArray(state.items) ? (state.items as QuotaItem[]) : [];
+          const items =
+            provider === "antigravity" ? filterAntigravityQuotaItems(rawItems) : rawItems;
+          const displayState = items === rawItems ? state : { ...state, items };
+          const hasError = state.status === "error";
+
+          const renderQuotaLinePreview = (item: QuotaItem) => {
+            const tone = resolveQuotaVisualTone(item.percent);
+            const percentText = tone.normalized === null ? "--" : `${Math.round(tone.normalized)}%`;
+            const resetText = formatQuotaResetTextCompact(item.resetAtMs) ?? "--";
+            return (
+              <div
+                key={item.label}
+                className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_0.875rem_auto_3.25rem] items-center gap-1"
+              >
+                <span className="min-w-0 truncate text-[10px] font-semibold text-slate-600 dark:text-white/70">
+                  {translateQuotaText(item.label)}
+                </span>
+                {quotaProgressCircle(item.percent)}
+                <span
+                  className={[
+                    "justify-self-end text-[10px] font-semibold tabular-nums",
+                    tone.percentClass,
+                  ].join(" ")}
+                >
+                  {percentText}
+                </span>
+                <span className="min-w-0 truncate whitespace-nowrap text-right text-[10px] tabular-nums text-slate-500 dark:text-white/40">
+                  {resetText}
+                </span>
+              </div>
+            );
+          };
+
+          return (
+            <HoverTooltip
+              disabled={!hasError && items.length === 0}
+              className="w-full min-w-0"
+              content={renderQuotaHoverContent(displayState, {
+                suppressItemMeta: provider === "antigravity",
+              })}
+            >
+              <div className="w-full min-w-0">
+                {hasError && items.length === 0 ? (
+                  <p className="truncate text-xs font-semibold text-rose-700 dark:text-rose-200">
+                    {translateQuotaText(state.error ?? t("common.error"))}
+                  </p>
+                ) : items.length === 0 ? (
+                  <span className="text-xs text-slate-400 dark:text-white/40">--</span>
+                ) : (
+                  renderQuotaLinePreview(pickQuotaPreviewItem(items, quotaPreviewMode) ?? items[0])
+                )}
+              </div>
+            </HoverTooltip>
           );
         },
       },
@@ -671,94 +759,6 @@ export function useAuthFilesFilesPresentation({
         render: (file) => {
           const statusData = resolveAuthFileStatusBar(file, usageIndex);
           return <ProviderStatusBar data={statusData} compact />;
-        },
-      },
-      {
-        key: "quota",
-        label: t("auth_files.col_quota"),
-        width: "w-64",
-        overflowTooltip: false,
-        headerClassName: "text-center",
-        headerRender: () => (
-          <div className="flex items-center justify-center gap-2 normal-case">
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-white/60">
-              {t("auth_files.col_quota")}
-            </span>
-            <Select
-              value={quotaPreviewMode}
-              onChange={(value) => setQuotaPreviewMode(value === "week" ? "week" : "5h")}
-              options={[
-                { value: "5h", label: t("auth_files.quota_preview_5h") },
-                { value: "week", label: t("auth_files.quota_preview_week") },
-              ]}
-              aria-label={t("auth_files.col_quota")}
-              className="w-[72px]"
-              variant="chip"
-            />
-          </div>
-        ),
-        render: (file) => {
-          const provider = resolveQuotaProvider(file);
-          if (!provider) {
-            return <span className="text-xs text-slate-400 dark:text-white/40">--</span>;
-          }
-
-          const state = quotaByFileName[file.name] ?? { status: "idle", items: [] };
-          const rawItems = Array.isArray(state.items) ? (state.items as QuotaItem[]) : [];
-          const items =
-            provider === "antigravity" ? filterAntigravityQuotaItems(rawItems) : rawItems;
-          const displayState = items === rawItems ? state : { ...state, items };
-          const hasError = state.status === "error";
-
-          const renderQuotaLinePreview = (item: QuotaItem) => {
-            const tone = resolveQuotaVisualTone(item.percent);
-            const percentText = tone.normalized === null ? "--" : `${Math.round(tone.normalized)}%`;
-            const resetText = formatQuotaResetTextCompact(item.resetAtMs) ?? "--";
-            return (
-              <div
-                key={item.label}
-                className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_0.875rem_auto_3.25rem] items-center gap-1"
-              >
-                <span className="min-w-0 truncate text-[10px] font-semibold text-slate-600 dark:text-white/70">
-                  {translateQuotaText(item.label)}
-                </span>
-                {quotaProgressCircle(item.percent)}
-                <span
-                  className={[
-                    "justify-self-end text-[10px] font-semibold tabular-nums",
-                    tone.percentClass,
-                  ].join(" ")}
-                >
-                  {percentText}
-                </span>
-                <span className="min-w-0 truncate whitespace-nowrap text-right text-[10px] tabular-nums text-slate-500 dark:text-white/40">
-                  {resetText}
-                </span>
-              </div>
-            );
-          };
-
-          return (
-            <HoverTooltip
-              disabled={!hasError && items.length === 0}
-              className="w-full min-w-0"
-              content={renderQuotaHoverContent(displayState, {
-                suppressItemMeta: provider === "antigravity",
-              })}
-            >
-              <div className="w-full min-w-0">
-                {hasError && items.length === 0 ? (
-                  <p className="truncate text-xs font-semibold text-rose-700 dark:text-rose-200">
-                    {translateQuotaText(state.error ?? t("common.error"))}
-                  </p>
-                ) : items.length === 0 ? (
-                  <span className="text-xs text-slate-400 dark:text-white/40">--</span>
-                ) : (
-                  renderQuotaLinePreview(pickQuotaPreviewItem(items, quotaPreviewMode) ?? items[0])
-                )}
-              </div>
-            </HoverTooltip>
-          );
         },
       },
       {

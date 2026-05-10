@@ -33,10 +33,6 @@ bun run check
 
 ## 大文件与 bundle
 
-```bash
-/Users/kittors/Developer/opensource/CliProxy/scripts/scan-large-files.sh
-```
-
 人工检查：
 
 - 页面是否新增超大文件

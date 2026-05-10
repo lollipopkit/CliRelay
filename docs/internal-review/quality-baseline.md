@@ -63,8 +63,6 @@ bun run check
 - 告警阈值：`> 800` 行
 - 阻塞阈值：`> 1200` 行
 
-配套扫描脚本：
+配套扫描检查：
 
-```bash
-/Users/kittors/Developer/opensource/CliProxy/scripts/scan-large-files.sh
-```
+- 手工核对代码行数与 bundle 大小趋势（可用 `find` + `wc -l` 以及 Vite bundle 分析结果）
