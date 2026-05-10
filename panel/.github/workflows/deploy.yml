@@ -1,0 +1,71 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Compute UI version
+        run: |
+          set -euo pipefail
+          SHORT_SHA="$(git rev-parse --short HEAD)"
+          echo "VITE_APP_VERSION=${{ github.ref_name }}-${SHORT_SHA}" >> "$GITHUB_ENV"
+
+      - name: Build production bundle
+        run: bunx vite build
+
+      - name: Write deployment version marker
+        run: |
+          printf '%s\n' "${VITE_APP_VERSION}" > dist/version.txt
+
+      - name: Clean old static files
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          port: ${{ secrets.SERVER_PORT }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            rm -rf /home/web/html/relay-panel/*
+
+      - name: Deploy static assets to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          port: ${{ secrets.SERVER_PORT }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "dist/*"
+          target: "/home/web/html/relay-panel/"
+          strip_components: 1
+          overwrite: true
+
+      - name: Verify deployment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          port: ${{ secrets.SERVER_PORT }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            ls -la /home/web/html/relay-panel/
+            test -f /home/web/html/relay-panel/manage.html
+            test -f /home/web/html/relay-panel/version.txt
+            echo "UI version:"
+            cat /home/web/html/relay-panel/version.txt
+            if ! grep -R --include='*.js' -q "/channel-groups" /home/web/html/relay-panel/assets; then
+              echo "channel-groups route was not found in deployed frontend assets"
+              exit 1
+            fi
+            echo "Frontend deployed successfully"

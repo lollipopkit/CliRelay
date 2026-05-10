@@ -1,0 +1,14 @@
+node_modules
+dist
+*.local
+.DS_Store
+.idea
+.vscode
+coverage
+bun.lockb
+.omx/
+test-results/
+playwright-report/
+.sisyphus/
+.agentflow/
+.helloagents/

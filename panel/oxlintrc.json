@@ -1,0 +1,16 @@
+{
+  "$schema": "https://oxc-project.github.io/oxc-json-schema/schemas/oxlintrc.json",
+  "plugins": ["typescript", "react", "jsx-a11y"],
+  "categories": {
+    "correctness": "warn",
+    "suspicious": "warn",
+    "performance": "warn",
+    "style": "off"
+  },
+  "rules": {
+    "react/jsx-key": "error",
+    "react/no-unknown-property": "error",
+    "jsx-a11y/alt-text": "warn",
+    "jsx-a11y/label-has-associated-control": "warn"
+  }
+}
