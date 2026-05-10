@@ -23,9 +23,6 @@ func TestLoadConfigDefaultsDisableControlPanel(t *testing.T) {
 	if cfg.RemoteManagement.DisableControlPanel {
 		t.Fatalf("DisableControlPanel = true, want false by default")
 	}
-	if cfg.RemoteManagement.PanelGitHubRepository != DefaultPanelGitHubRepository {
-		t.Fatalf("PanelGitHubRepository = %q, want %q", cfg.RemoteManagement.PanelGitHubRepository, DefaultPanelGitHubRepository)
-	}
 }
 
 func TestSanitizeRoutingPreservesChannelGroupStrategy(t *testing.T) {
@@ -145,8 +142,7 @@ func TestSaveConfigPreserveCommentsOmitsDisableControlPanelWhenDefaultFalse(t *t
 	cfg := &Config{
 		Port: 8317,
 		RemoteManagement: RemoteManagement{
-			DisableControlPanel:   false,
-			PanelGitHubRepository: DefaultPanelGitHubRepository,
+			DisableControlPanel: false,
 		},
 	}
 
@@ -163,9 +159,6 @@ func TestSaveConfigPreserveCommentsOmitsDisableControlPanelWhenDefaultFalse(t *t
 	if strings.Contains(rendered, "disable-control-panel:") {
 		t.Fatalf("saved config unexpectedly persisted default disable-control-panel=false:\n%s", rendered)
 	}
-	if strings.Contains(rendered, "panel-github-repository:") {
-		t.Fatalf("saved config unexpectedly persisted default panel repository:\n%s", rendered)
-	}
 }
 
 func TestSaveConfigPreserveCommentsKeepsDisableControlPanelTrue(t *testing.T) {
@@ -179,8 +172,7 @@ func TestSaveConfigPreserveCommentsKeepsDisableControlPanelTrue(t *testing.T) {
 	cfg := &Config{
 		Port: 8317,
 		RemoteManagement: RemoteManagement{
-			DisableControlPanel:   true,
-			PanelGitHubRepository: DefaultPanelGitHubRepository,
+			DisableControlPanel: true,
 		},
 	}
 

@@ -23,7 +23,6 @@ func TestBuildConfigChangeDetails(t *testing.T) {
 			AllowRemote:           false,
 			SecretKey:             "old",
 			DisableControlPanel:   false,
-			PanelGitHubRepository: "repo-old",
 		},
 		OAuthExcludedModels: map[string][]string{
 			"providerA": {"m1"},
@@ -57,7 +56,6 @@ func TestBuildConfigChangeDetails(t *testing.T) {
 			AllowRemote:           true,
 			SecretKey:             "new",
 			DisableControlPanel:   true,
-			PanelGitHubRepository: "repo-new",
 		},
 		OAuthExcludedModels: map[string][]string{
 			"providerA": {"m1", "m2"},
@@ -229,7 +227,7 @@ func TestBuildConfigChangeDetails_FlagsAndKeys(t *testing.T) {
 		ClaudeKey:              []config.ClaudeKey{{APIKey: "c1"}},
 		CodexKey:               []config.CodexKey{{APIKey: "x1"}},
 		AmpCode:                config.AmpCode{UpstreamAPIKey: "keep", RestrictManagementToLocalhost: false},
-		RemoteManagement:       config.RemoteManagement{DisableControlPanel: false, PanelGitHubRepository: "old/repo", SecretKey: "keep"},
+		RemoteManagement:       config.RemoteManagement{DisableControlPanel: false, SecretKey: "keep"},
 		SDKConfig: sdkconfig.SDKConfig{
 			RequestLog:                 false,
 			ProxyURL:                   "http://old-proxy",
@@ -264,7 +262,6 @@ func TestBuildConfigChangeDetails_FlagsAndKeys(t *testing.T) {
 		},
 		RemoteManagement: config.RemoteManagement{
 			DisableControlPanel:   true,
-			PanelGitHubRepository: "new/repo",
 			SecretKey:             "",
 		},
 		SDKConfig: sdkconfig.SDKConfig{
@@ -296,7 +293,6 @@ func TestBuildConfigChangeDetails_FlagsAndKeys(t *testing.T) {
 	expectContains(t, details, "ampcode.restrict-management-to-localhost: false -> true")
 	expectContains(t, details, "ampcode.upstream-api-key: removed")
 	expectContains(t, details, "remote-management.disable-control-panel: false -> true")
-	expectContains(t, details, "remote-management.panel-github-repository: old/repo -> new/repo")
 	expectContains(t, details, "remote-management.secret-key: deleted")
 }
 
@@ -334,7 +330,6 @@ func TestBuildConfigChangeDetails_AllBranches(t *testing.T) {
 		RemoteManagement: config.RemoteManagement{
 			AllowRemote:           false,
 			DisableControlPanel:   false,
-			PanelGitHubRepository: "old/repo",
 			SecretKey:             "old",
 		},
 		SDKConfig: sdkconfig.SDKConfig{
@@ -386,7 +381,6 @@ func TestBuildConfigChangeDetails_AllBranches(t *testing.T) {
 		RemoteManagement: config.RemoteManagement{
 			AllowRemote:           true,
 			DisableControlPanel:   true,
-			PanelGitHubRepository: "new/repo",
 			SecretKey:             "",
 		},
 		SDKConfig: sdkconfig.SDKConfig{
@@ -454,7 +448,6 @@ func TestBuildConfigChangeDetails_AllBranches(t *testing.T) {
 	expectContains(t, changes, "oauth-excluded-models[p2]: added (1 entries)")
 	expectContains(t, changes, "remote-management.allow-remote: false -> true")
 	expectContains(t, changes, "remote-management.disable-control-panel: false -> true")
-	expectContains(t, changes, "remote-management.panel-github-repository: old/repo -> new/repo")
 	expectContains(t, changes, "remote-management.secret-key: deleted")
 	expectContains(t, changes, "openai-compatibility:")
 }

@@ -6,9 +6,5 @@ dist
 .vscode
 coverage
 bun.lockb
-.omx/
 test-results/
-playwright-report/
-.sisyphus/
-.agentflow/
-.helloagents/
+dist/

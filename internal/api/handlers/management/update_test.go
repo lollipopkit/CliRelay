@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 
@@ -202,7 +201,6 @@ func TestBuildUpdateCheckGracefullyHandlesGitHubFailures(t *testing.T) {
 	cfg.AutoUpdate.Enabled = true
 	cfg.AutoUpdate.Channel = "dev"
 	cfg.AutoUpdate.Repository = "https://github.com/kittors/CliRelay"
-	cfg.RemoteManagement.PanelGitHubRepository = "https://github.com/kittors/codeProxy"
 
 	handler := &Handler{cfg: cfg}
 	resp, err := handler.buildUpdateCheck(context.Background())
@@ -250,21 +248,17 @@ func TestBuildUpdateCheckUsesConfiguredPanelRepository(t *testing.T) {
 	cfg.AutoUpdate.Enabled = true
 	cfg.AutoUpdate.Channel = "main"
 	cfg.AutoUpdate.Repository = "https://github.com/kittors/CliRelay"
-	cfg.RemoteManagement.PanelGitHubRepository = "https://github.com/router-for-me/Cli-Proxy-API-Management-Center"
 
 	handler := &Handler{cfg: cfg}
 	if _, err := handler.buildUpdateCheck(context.Background()); err != nil {
 		t.Fatalf("buildUpdateCheck() error = %v, want nil", err)
 	}
 
-	if !slices.Contains(repos, "kittors/CliRelay") {
-		t.Fatalf("repos = %v, want backend repo kittors/CliRelay", repos)
+	if len(repos) != 2 {
+		t.Fatalf("expected 2 branch lookups (backend + frontend), got %d", len(repos))
 	}
-	if !slices.Contains(repos, "router-for-me/Cli-Proxy-API-Management-Center") {
-		t.Fatalf("repos = %v, want configured panel repo", repos)
-	}
-	if slices.Contains(repos, "kittors/codeProxy") {
-		t.Fatalf("repos = %v, did not expect default panel repo when config overrides it", repos)
+	if repos[0] != "kittors/CliRelay" || repos[1] != "kittors/CliRelay" {
+		t.Fatalf("repos = %v, want backend and frontend to query the same repo", repos)
 	}
 }
 
@@ -303,8 +297,6 @@ func TestBuildUpdateCheckUsesRuntimePanelMetadata(t *testing.T) {
 		switch repo {
 		case "kittors/CliRelay":
 			return branchCommitInfo{SHA: "1402b1d6970b7ce61eec9430b137e817c448d215"}, nil
-		case "router-for-me/Cli-Proxy-API-Management-Center":
-			return branchCommitInfo{SHA: runtimeUICommit}, nil
 		default:
 			t.Fatalf("unexpected repo %q", repo)
 			return branchCommitInfo{}, nil
@@ -325,7 +317,6 @@ func TestBuildUpdateCheckUsesRuntimePanelMetadata(t *testing.T) {
 	cfg.AutoUpdate.Enabled = true
 	cfg.AutoUpdate.Channel = "dev"
 	cfg.AutoUpdate.Repository = "https://github.com/kittors/CliRelay"
-	cfg.RemoteManagement.PanelGitHubRepository = "https://github.com/router-for-me/Cli-Proxy-API-Management-Center"
 
 	handler := &Handler{cfg: cfg}
 	resp, err := handler.buildUpdateCheck(context.Background())
@@ -443,8 +434,6 @@ func TestApplyUpdateReturnsNotImplementedWhenNoTargetAvailable(t *testing.T) {
 		switch strings.TrimSpace(repo) {
 		case "kittors/CliRelay":
 			return branchCommitInfo{SHA: "aaaaaaaaaaaaaaaa", HTMLURL: "https://example.com/" + repo}, nil
-		case "kittors/codeProxy":
-			return branchCommitInfo{SHA: buildinfo.FrontendCommit, HTMLURL: "https://example.com/" + repo}, nil
 		default:
 			return branchCommitInfo{SHA: buildinfo.FrontendCommit, HTMLURL: "https://example.com/" + repo}, nil
 		}
@@ -458,7 +447,6 @@ func TestApplyUpdateReturnsNotImplementedWhenNoTargetAvailable(t *testing.T) {
 	cfg.AutoUpdate.Enabled = true
 	cfg.AutoUpdate.Channel = "main"
 	cfg.AutoUpdate.Repository = "https://github.com/kittors/CliRelay"
-	cfg.RemoteManagement.PanelGitHubRepository = "https://github.com/kittors/codeProxy"
 	handler := NewHandler(cfg, filepath.Join(t.TempDir(), "config.yaml"), nil)
 	buildinfo.Version = "main-bbbbbbbb"
 	buildinfo.Commit = "bbbbbbbb"

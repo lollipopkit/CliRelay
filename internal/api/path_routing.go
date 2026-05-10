@@ -174,6 +174,46 @@ func allowedChannelGroupsFromAccessMetadata(c *gin.Context) map[string]struct{} 
 	return internalrouting.ParseNormalizedSet(metadata["allowed-channel-groups"], internalrouting.NormalizeGroupName)
 }
 
+func singleAllowedGroupFromMetadata(c *gin.Context) string {
+	allowed := allowedChannelGroupsFromAccessMetadata(c)
+	if len(allowed) != 1 {
+		return ""
+	}
+	var group string
+	for g := range allowed {
+		group = g
+		break
+	}
+	group = internalrouting.NormalizeGroupName(group)
+	if group == "" {
+		return ""
+	}
+	return group
+}
+
+func singleAllowedChannelGroupMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c == nil {
+			return
+		}
+		if pathRouteContextFromGin(c) != nil {
+			c.Next()
+			return
+		}
+		group := singleAllowedGroupFromMetadata(c)
+		if group == "" {
+			c.Next()
+			return
+		}
+		attachPathRouteContext(c, &internalrouting.PathRouteContext{
+			RoutePath: "/" + group,
+			Group:     group,
+			Fallback:  "none",
+		})
+		c.Next()
+	}
+}
+
 func channelGroupsForProviderLookup(c *gin.Context) []string {
 	set := make(map[string]struct{})
 	if route := pathRouteContextFromGin(c); route != nil && route.Group != "" {

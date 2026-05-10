@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -418,6 +419,7 @@ func (s *Server) setupRoutes() {
 	// OpenAI compatible API routes
 	v1 := s.engine.Group("/v1")
 	v1.Use(AuthMiddleware(s.accessManager))
+	v1.Use(singleAllowedChannelGroupMiddleware())
 	v1.Use(channelGroupAuthorizationMiddleware())
 	v1.Use(middleware.QuotaMiddleware())
 	v1.Use(ModelRestrictionMiddleware())
@@ -427,6 +429,7 @@ func (s *Server) setupRoutes() {
 	groupedV1 := s.engine.Group("/:group/v1")
 	groupedV1.Use(groupRoutingMiddleware(resolveRoute))
 	groupedV1.Use(AuthMiddleware(s.accessManager))
+	groupedV1.Use(singleAllowedChannelGroupMiddleware())
 	groupedV1.Use(channelGroupAuthorizationMiddleware())
 	groupedV1.Use(middleware.QuotaMiddleware())
 	groupedV1.Use(ModelRestrictionMiddleware())
@@ -436,6 +439,7 @@ func (s *Server) setupRoutes() {
 	// Gemini compatible API routes
 	v1beta := s.engine.Group("/v1beta")
 	v1beta.Use(AuthMiddleware(s.accessManager))
+	v1beta.Use(singleAllowedChannelGroupMiddleware())
 	v1beta.Use(channelGroupAuthorizationMiddleware())
 	v1beta.Use(middleware.QuotaMiddleware())
 	v1beta.Use(ModelRestrictionMiddleware())
@@ -444,6 +448,7 @@ func (s *Server) setupRoutes() {
 	groupedV1Beta := s.engine.Group("/:group/v1beta")
 	groupedV1Beta.Use(groupRoutingMiddleware(resolveRoute))
 	groupedV1Beta.Use(AuthMiddleware(s.accessManager))
+	groupedV1Beta.Use(singleAllowedChannelGroupMiddleware())
 	groupedV1Beta.Use(channelGroupAuthorizationMiddleware())
 	groupedV1Beta.Use(middleware.QuotaMiddleware())
 	groupedV1Beta.Use(ModelRestrictionMiddleware())
@@ -880,6 +885,14 @@ func (s *Server) serveManagementControlPanel(c *gin.Context) {
 		return
 	}
 
+	if managementasset.IsEmbeddedPanelAvailable() {
+		if s.tryServeEmbeddedManagementPanel(c) {
+			return
+		}
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
 	// Resolve the directory containing the SPA assets (manage.html + assets/).
 	panelDir := s.resolvePanelDir()
 	if panelDir == "" {
@@ -897,7 +910,7 @@ func (s *Server) serveManagementControlPanel(c *gin.Context) {
 						reqCtx = requestCtx
 					}
 				}
-				if !managementasset.EnsureLatestManagementHTML(reqCtx, managementasset.StaticDir(s.configFilePath), cfg.ProxyURL, cfg.RemoteManagement.PanelGitHubRepository) {
+				if !managementasset.EnsureLatestManagementHTML(reqCtx, managementasset.StaticDir(s.configFilePath), cfg.ProxyURL) {
 					c.AbortWithStatus(http.StatusNotFound)
 					return
 				}
@@ -941,6 +954,39 @@ func (s *Server) serveManagementControlPanel(c *gin.Context) {
 	c.File(htmlFile)
 }
 
+func (s *Server) tryServeEmbeddedManagementPanel(c *gin.Context) bool {
+	reqPath := strings.TrimSpace(c.Param("filepath"))
+	if reqPath != "" && reqPath != "/" {
+		cleanPath := path.Clean(strings.TrimPrefix(reqPath, "/"))
+		if cleanPath == "." || strings.Contains(cleanPath, "..") {
+			return false
+		}
+
+		if data, ok := managementasset.ReadEmbeddedPanelAsset(cleanPath); ok {
+			s.servePanelAssetWithBytes(c, cleanPath, data)
+			return true
+		}
+		return false
+	}
+
+	htmlCandidates := []string{"manage.html", "management.html"}
+	if c.Request != nil && c.Request.URL != nil && strings.EqualFold(c.Request.URL.Path, "/management.html") {
+		htmlCandidates = []string{"management.html", "manage.html"}
+	}
+
+	for _, candidate := range htmlCandidates {
+		data, ok := managementasset.ReadEmbeddedPanelAsset(candidate)
+		if !ok {
+			continue
+		}
+		c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+		s.servePanelAssetWithBytes(c, candidate, data)
+		return true
+	}
+
+	return false
+}
+
 func clearServerWriteDeadline(c *gin.Context) {
 	if c == nil || c.Writer == nil {
 		return
@@ -957,6 +1003,15 @@ func (s *Server) resolvePanelDir() string {
 // Assets with content-hashed filenames (e.g. index-abc123.js) get immutable
 // caching; all compressible types (JS, CSS, SVG, JSON) are gzip-encoded on the fly.
 func (s *Server) serveStaticFileWithCompression(c *gin.Context, filePath string) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		c.File(filePath)
+		return
+	}
+	s.servePanelAssetWithBytes(c, filePath, data)
+}
+
+func (s *Server) servePanelAssetWithBytes(c *gin.Context, filePath string, data []byte) {
 	ext := strings.ToLower(filepath.Ext(filePath))
 	base := filepath.Base(filePath)
 
@@ -975,46 +1030,50 @@ func (s *Server) serveStaticFileWithCompression(c *gin.Context, filePath string)
 	}
 
 	if !compressible[ext] {
-		c.File(filePath)
+		c.Data(http.StatusOK, s.panelAssetContentType(ext), data)
 		return
 	}
 
 	// Check if the client accepts gzip encoding.
 	if !strings.Contains(c.GetHeader("Accept-Encoding"), "gzip") {
-		c.File(filePath)
+		c.Data(http.StatusOK, s.panelAssetContentType(ext), data)
 		return
 	}
 
 	// Read the file and compress it.
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		c.File(filePath)
+	if len(data) == 0 {
+		c.Data(http.StatusOK, s.panelAssetContentType(ext), nil)
 		return
 	}
 
 	var buf bytes.Buffer
 	gz, err := gzip.NewWriterLevel(&buf, gzip.BestSpeed)
 	if err != nil {
-		c.File(filePath)
+		c.Data(http.StatusOK, s.panelAssetContentType(ext), data)
 		return
 	}
 	if _, err = gz.Write(data); err != nil {
 		_ = gz.Close()
-		c.File(filePath)
+		c.Data(http.StatusOK, s.panelAssetContentType(ext), data)
 		return
 	}
 	if err = gz.Close(); err != nil {
-		c.File(filePath)
+		c.Data(http.StatusOK, s.panelAssetContentType(ext), data)
 		return
 	}
 
 	// Only use compressed version if it's actually smaller.
 	if buf.Len() >= len(data) {
-		c.File(filePath)
+		c.Data(http.StatusOK, s.panelAssetContentType(ext), data)
 		return
 	}
 
-	// Determine content type from extension.
+	c.Header("Content-Encoding", "gzip")
+	c.Header("Vary", "Accept-Encoding")
+	c.Data(http.StatusOK, s.panelAssetContentType(ext), buf.Bytes())
+}
+
+func (s *Server) panelAssetContentType(ext string) string {
 	contentTypes := map[string]string{
 		".js":   "application/javascript; charset=utf-8",
 		".css":  "text/css; charset=utf-8",
@@ -1029,10 +1088,7 @@ func (s *Server) serveStaticFileWithCompression(c *gin.Context, filePath string)
 	if ct == "" {
 		ct = "application/octet-stream"
 	}
-
-	c.Header("Content-Encoding", "gzip")
-	c.Header("Vary", "Accept-Encoding")
-	c.Data(http.StatusOK, ct, buf.Bytes())
+	return ct
 }
 
 func (s *Server) enableKeepAlive(timeout time.Duration, onTimeout func()) {

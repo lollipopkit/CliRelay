@@ -191,8 +191,6 @@ The gallery below uses the latest supplied screenshots, covering the current end
 | :----------------- |
 | <img src="docs/images/readme-showcase/system-info.png" width="100%" alt="System information page" /> |
 
-> 🔗 The runtime panel source is configurable via `remote-management.panel-github-repository`. The default repository is [kittors/codeProxy](https://github.com/kittors/codeProxy).
-
 ## 🏗️ Supported Providers
 
 | Provider / Channel | Auth | Notes |
@@ -293,11 +291,8 @@ http://localhost:8317/manage
 - `remote-management.disable-control-panel` defaults to `false` in the example config, so the control panel is reachable after a standard Docker Compose deployment.
 - When enabled, the current panel route is `/manage/login`. The old `management.html#/login` route is legacy-only.
 - Docker Compose deployments expose the panel at `/manage`.
-- The server can serve a bundled SPA directory or auto-fetch panel assets when needed.
-- This repository contains the hosting/update path for `/manage`; the standalone web panel source is maintained separately from the Go server code.
-- Make UI/interaction/copy changes in the panel source repository (default: `kittors/codeProxy`) and ship them via its release artifacts for the server to fetch.
+- The server serves the panel from embedded `panel/` assets in this repository (`panel/dist`), so the same release ships backend and management UI together.
 - Terminal-first management is also available through `docker compose exec cli-proxy-api ./cli-proxy-api -tui`.
-- If you want to customize the panel asset source, set `remote-management.panel-github-repository`.
 
 ## 📐 Architecture
 

@@ -15,7 +15,6 @@ import {
   formatApiKeyDate,
   formatApiKeyLimit,
   formatApiKeySpendingLimit,
-  maskApiKey,
   VendorIcon,
 } from "@/modules/api-keys/apiKeyPageUtils";
 import { HoverTooltip, OverflowTooltip } from "@/modules/ui/Tooltip";
@@ -81,15 +80,71 @@ export const createApiKeyColumns = ({
     ),
   },
   {
-    key: "key",
-    label: t("api_keys_page.col_key"),
-    width: "w-[320px] min-w-[320px]",
-    cellClassName: "whitespace-nowrap",
-    render: (row) => (
-      <code className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-700 dark:bg-neutral-800 dark:text-white/70">
-        {maskApiKey(row.key)}
-      </code>
-    ),
+    key: "actions",
+    label: t("api_keys_page.col_actions"),
+    width: "w-[188px] min-w-[188px]",
+    render: (row, idx) => {
+      const viewUsageLabel = t("api_keys_page.view_usage");
+      const copyKeyLabel = t("api_keys_page.copy_key");
+      const importLabel = t("ccswitch.import_to_ccswitch");
+      const editLabel = t("common.edit");
+      const deleteLabel = t("common.delete");
+
+      return (
+        <div className="flex items-center gap-1.5">
+          <HoverTooltip content={viewUsageLabel}>
+            <button
+              type="button"
+              onClick={() => onViewUsage(row)}
+              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-blue-600 dark:text-white/50 dark:hover:bg-neutral-800 dark:hover:text-blue-400"
+              aria-label={viewUsageLabel}
+            >
+              <BarChart3 size={15} />
+            </button>
+          </HoverTooltip>
+          <HoverTooltip content={copyKeyLabel}>
+            <button
+              type="button"
+              onClick={() => onCopy(row.key)}
+              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:text-white/50 dark:hover:bg-neutral-800 dark:hover:text-indigo-400"
+              aria-label={copyKeyLabel}
+            >
+              <Copy size={15} />
+            </button>
+          </HoverTooltip>
+          <HoverTooltip content={importLabel}>
+            <button
+              type="button"
+              onClick={() => onImportToCcSwitch(row)}
+              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-cyan-600 dark:text-white/50 dark:hover:bg-neutral-800 dark:hover:text-cyan-400"
+              aria-label={importLabel}
+            >
+              <Upload size={15} />
+            </button>
+          </HoverTooltip>
+          <HoverTooltip content={editLabel}>
+            <button
+              type="button"
+              onClick={() => onEdit(idx)}
+              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-amber-600 dark:text-white/50 dark:hover:bg-neutral-800 dark:hover:text-amber-400"
+              aria-label={editLabel}
+            >
+              <Pencil size={15} />
+            </button>
+          </HoverTooltip>
+          <HoverTooltip content={deleteLabel}>
+            <button
+              type="button"
+              onClick={() => onDelete(idx)}
+              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-white/50 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+              aria-label={deleteLabel}
+            >
+              <Trash2 size={15} />
+            </button>
+          </HoverTooltip>
+        </div>
+      );
+    },
   },
   {
     key: "dailyLimit",
@@ -315,72 +370,5 @@ export const createApiKeyColumns = ({
     width: "w-[168px] min-w-[168px]",
     cellClassName: "whitespace-nowrap text-slate-500 dark:text-white/50",
     render: (row) => <>{formatApiKeyDate(row["created-at"])}</>,
-  },
-  {
-    key: "actions",
-    label: t("api_keys_page.col_actions"),
-    width: "w-[188px] min-w-[188px]",
-    render: (row, idx) => {
-      const viewUsageLabel = t("api_keys_page.view_usage");
-      const copyKeyLabel = t("api_keys_page.copy_key");
-      const importLabel = t("ccswitch.import_to_ccswitch");
-      const editLabel = t("common.edit");
-      const deleteLabel = t("common.delete");
-
-      return (
-        <div className="flex items-center gap-1.5">
-          <HoverTooltip content={viewUsageLabel}>
-            <button
-              type="button"
-              onClick={() => onViewUsage(row)}
-              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-blue-600 dark:text-white/50 dark:hover:bg-neutral-800 dark:hover:text-blue-400"
-              aria-label={viewUsageLabel}
-            >
-              <BarChart3 size={15} />
-            </button>
-          </HoverTooltip>
-          <HoverTooltip content={copyKeyLabel}>
-            <button
-              type="button"
-              onClick={() => onCopy(row.key)}
-              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:text-white/50 dark:hover:bg-neutral-800 dark:hover:text-indigo-400"
-              aria-label={copyKeyLabel}
-            >
-              <Copy size={15} />
-            </button>
-          </HoverTooltip>
-          <HoverTooltip content={importLabel}>
-            <button
-              type="button"
-              onClick={() => onImportToCcSwitch(row)}
-              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-cyan-600 dark:text-white/50 dark:hover:bg-neutral-800 dark:hover:text-cyan-400"
-              aria-label={importLabel}
-            >
-              <Upload size={15} />
-            </button>
-          </HoverTooltip>
-          <HoverTooltip content={editLabel}>
-            <button
-              type="button"
-              onClick={() => onEdit(idx)}
-              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-amber-600 dark:text-white/50 dark:hover:bg-neutral-800 dark:hover:text-amber-400"
-              aria-label={editLabel}
-            >
-              <Pencil size={15} />
-            </button>
-          </HoverTooltip>
-          <HoverTooltip content={deleteLabel}>
-            <button
-              type="button"
-              onClick={() => onDelete(idx)}
-              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-white/50 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-              aria-label={deleteLabel}
-            >
-              <Trash2 size={15} />
-            </button>
-          </HoverTooltip>
-        </div>
-      );
-    },
   },
 ];

@@ -158,7 +158,7 @@ func (h *Handler) buildUpdateCheck(ctx context.Context) (*updateCheckResponse, e
 		channel = inferAutoUpdateChannel(buildinfo.Version, os.Getenv(autoUpdateChannelEnv))
 	}
 	repo := normalizeGitHubRepository(cfg.AutoUpdate.Repository)
-	frontendRepo := normalizeGitHubRepository(cfg.RemoteManagement.PanelGitHubRepository)
+	frontendRepo := repo
 	client := h.githubClient()
 
 	branch, branchErr := fetchBranchCommitForUpdateCheck(ctx, client, repo, channel)

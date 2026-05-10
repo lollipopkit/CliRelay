@@ -102,7 +102,7 @@ func runAutoUpdater(ctx context.Context) {
 
 		configPath, _ := schedulerConfigPath.Load().(string)
 		staticDir := StaticDir(configPath)
-		EnsureLatestManagementHTML(ctx, staticDir, cfg.ProxyURL, cfg.RemoteManagement.PanelGitHubRepository)
+		EnsureLatestManagementHTML(ctx, staticDir, cfg.ProxyURL)
 	}
 
 	runOnce()
@@ -187,7 +187,7 @@ func FilePath(configFilePath string) string {
 // It first tries to download a full SPA zip bundle (panel-dist.zip) from the release.
 // If no zip is found, it falls back to downloading the single management.html file.
 // It coalesces concurrent sync attempts and returns whether the asset exists after the sync attempt.
-func EnsureLatestManagementHTML(ctx context.Context, staticDir string, proxyURL string, panelRepository string) bool {
+func EnsureLatestManagementHTML(ctx context.Context, staticDir string, proxyURL string) bool {
 	if ctx == nil {
 		// 这里的同步既可能来自请求路径，也可能来自后台调度器。
 		// 若调用方没有提供 context，则退化为根 context，由内部 HTTP timeout 负责边界。
@@ -222,7 +222,7 @@ func EnsureLatestManagementHTML(ctx context.Context, staticDir string, proxyURL 
 			return nil, nil
 		}
 
-		releaseURL := resolveReleaseURL(panelRepository)
+		releaseURL := resolveReleaseURL("")
 		client := newHTTPClient(proxyURL)
 
 		// Try SPA zip-based update first (panel-dist.zip).

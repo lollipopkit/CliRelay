@@ -86,7 +86,7 @@ describe("ApiKeyColumns", () => {
     expect(screen.getByRole("tooltip")).toHaveStyle({ left: "76px", top: "140px" });
   });
 
-  test("keeps the API key column at the wider fixed width", () => {
+  test("keeps the actions column width", () => {
     const columns = createApiKeyColumns({
       t,
       onCopy: vi.fn(),
@@ -96,9 +96,9 @@ describe("ApiKeyColumns", () => {
       onToggleDisable: vi.fn(),
       onViewUsage: vi.fn(),
     });
-    const keyColumn = columns.find((column) => column.key === "key");
+    const actionsColumn = columns.find((column) => column.key === "actions");
 
-    expect(keyColumn?.width).toBe("w-[320px] min-w-[320px]");
+    expect(actionsColumn?.width).toBe("w-[188px] min-w-[188px]");
   });
 
   test("shows API key spending limits as a dedicated cost column", async () => {

@@ -55,15 +55,20 @@ describe("dashboard card composition", () => {
     );
   });
 
-  test("uses a centered health hero and circular disk usage card in system monitor", () => {
+  test("omits host resource panels from system monitor", () => {
     const source = readModule("modules/dashboard/SystemMonitorSection.tsx");
 
-    expect(source).toContain("HealthHeroCard");
-    expect(source).toContain("DiskUsageRingCard");
-    expect(source).toContain('bodyClassName="mt-0 flex h-full items-center justify-center"');
-    expect(source).toContain("strokeDasharray={circumference}");
-    expect(source).toContain("grid gap-3 xl:grid-cols-[260px_minmax(0,1fr)_280px]");
+    expect(source).not.toContain("HealthHeroCard");
+    expect(source).not.toContain("DiskUsageRingCard");
+    expect(source).not.toContain("NetworkCard");
+    expect(source).not.toContain("ResourceBar");
+    expect(source).not.toContain("strokeDasharray={circumference}");
+    expect(source).not.toContain("grid gap-3 xl:grid-cols-[260px_minmax(0,1fr)_280px]");
     expect(source).not.toContain('label={t("system_monitor.disk_free")}');
+    expect(source).not.toContain('t("system_monitor.system_cpu")');
+    expect(source).not.toContain('t("system_monitor.system_memory")');
+    expect(source).not.toContain('t("system_monitor.service_cpu")');
+    expect(source).not.toContain('t("system_monitor.service_memory")');
   });
 
   test("labels api key count explicitly instead of users in latency summary", () => {
@@ -80,6 +85,6 @@ describe("dashboard card composition", () => {
     expect(dashboardSource).toContain("dark:bg-neutral-900/70");
     expect(dashboardSource).toContain("dark:text-slate-200");
     expect(systemMonitorSource).toContain("dark:bg-neutral-900/70");
-    expect(systemMonitorSource).toContain("dark:text-white/80");
+    expect(systemMonitorSource).toContain("dark:text-white/40");
   });
 });

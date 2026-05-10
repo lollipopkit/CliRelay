@@ -39,10 +39,7 @@ type OpenAICompatibilityModel = internalconfig.OpenAICompatibilityModel
 
 type TLS = internalconfig.TLSConfig
 
-const (
-	DefaultPanelGitHubRepository = internalconfig.DefaultPanelGitHubRepository
-	DefaultBedrockRegion         = internalconfig.DefaultBedrockRegion
-)
+const DefaultBedrockRegion = internalconfig.DefaultBedrockRegion
 
 func LoadConfig(configFile string) (*Config, error) { return internalconfig.LoadConfig(configFile) }
 
