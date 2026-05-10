@@ -111,7 +111,7 @@ CliRelay turns AI CLI subscriptions, OAuth credentials, API keys, and compatible
 | 🌐 **Chinese / English UI** | Built-in i18n for the management panel and Compose/TUI language selection |
 | 🌙 **Dark Mode** | Full dark theme for long-running operational sessions |
 | 🧬 **Visual Config Editor** | Edit runtime config visually or inspect source YAML when you need exact control |
-| 🔄 **Online Update Flow** | Check versions, review update notes, trigger the updater sidecar, and wait for backend recovery from the panel |
+| 🔄 **Update Checks** | Check versions, review update notes, and choose when to update the deployment |
 | 📥 **CC Switch Import** | Import cc-switch style configuration into the managed model/channel workspace |
 
 ### 🗄️ Data Persistence
@@ -212,7 +212,7 @@ The gallery below uses the latest supplied screenshots, covering the current end
 
 ### 🐳 Install With Docker Compose
 
-Docker Compose is the recommended installation path for CliRelay. The included `docker-compose.yml` uses the published `ghcr.io/kittors/clirelay:latest` image by default and starts both the API service and updater sidecar.
+Docker Compose is the recommended installation path for CliRelay. The included `docker-compose.yml` uses the published `ghcr.io/kittors/clirelay:latest` image by default and starts the API service.
 
 ```bash
 git clone https://github.com/kittors/CliRelay.git

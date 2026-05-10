@@ -126,7 +126,7 @@ describe("AutoUpdatePrompt", () => {
     expect(await screen.findByText(/panel-main-9477958.*update now\?/i)).toBeInTheDocument();
   });
 
-  test("does not show auto update toast when updater sidecar is unavailable", async () => {
+  test("does not show auto update toast when updater is unavailable", async () => {
     mocks.check.mockResolvedValue({
       enabled: true,
       update_available: true,

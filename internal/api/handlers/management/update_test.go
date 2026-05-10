@@ -381,7 +381,6 @@ func TestBuildCurrentUpdateStateDoesNotQueryGitHub(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.AutoUpdate.Enabled = true
 	cfg.AutoUpdate.Channel = "dev"
-	cfg.AutoUpdate.DockerImage = "ghcr.io/kittors/clirelay"
 	handler := &Handler{cfg: cfg}
 
 	resp := handler.buildCurrentUpdateState(context.Background())
@@ -405,37 +404,77 @@ func TestBuildCurrentUpdateStateDoesNotQueryGitHub(t *testing.T) {
 	}
 }
 
-func TestFetchUpdateProgressProxiesUpdaterStatus(t *testing.T) {
-	updater := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/status" {
-			t.Fatalf("path = %q, want /v1/status", r.URL.Path)
-		}
-		if got := r.Header.Get("Authorization"); got != "Bearer test-token" {
-			t.Fatalf("Authorization = %q, want Bearer test-token", got)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"status":"running","stage":"pulling","target_version":"dev-abcdef1","logs":[{"timestamp":"2026-04-20T07:30:01Z","stream":"stdout","message":"docker compose pull clirelay"}]}`))
-	}))
-	t.Cleanup(updater.Close)
-	t.Setenv("CLIRELAY_UPDATER_URL", updater.URL)
-	t.Setenv("CLIRELAY_UPDATER_TOKEN", "test-token")
+func TestGetUpdateProgressReturnsNotImplemented(t *testing.T) {
+	router := gin.New()
+	handler := NewHandler(&config.Config{}, filepath.Join(t.TempDir(), "config.yaml"), nil)
 
-	handler := &Handler{cfg: &config.Config{}}
-	progress, err := handler.fetchUpdateProgress(context.Background())
-	if err != nil {
-		t.Fatalf("fetchUpdateProgress() error = %v, want nil", err)
+	router.GET("/update/progress", handler.GetUpdateProgress)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/update/progress", nil)
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotImplemented {
+		t.Fatalf("GET /update/progress status = %d, body=%s", rec.Code, rec.Body.String())
 	}
-	if progress.Status != "running" {
-		t.Fatalf("Status = %q, want running", progress.Status)
+}
+
+func TestApplyUpdateReturnsNotImplementedWhenNoTargetAvailable(t *testing.T) {
+	origFetchBranchCommit := fetchBranchCommitForUpdateCheck
+	origFetchLatestRelease := fetchLatestReleaseInfoForUpdateCheck
+	origBuildinfoVersion := buildinfo.Version
+	origBuildinfoCommit := buildinfo.Commit
+	origBuildinfoBuildDate := buildinfo.BuildDate
+	origBuildinfoFrontendVersion := buildinfo.FrontendVersion
+	origBuildinfoFrontendCommit := buildinfo.FrontendCommit
+	origBuildinfoFrontendRef := buildinfo.FrontendRef
+	t.Cleanup(func() {
+		fetchBranchCommitForUpdateCheck = origFetchBranchCommit
+		fetchLatestReleaseInfoForUpdateCheck = origFetchLatestRelease
+		buildinfo.Version = origBuildinfoVersion
+		buildinfo.Commit = origBuildinfoCommit
+		buildinfo.BuildDate = origBuildinfoBuildDate
+		buildinfo.FrontendVersion = origBuildinfoFrontendVersion
+		buildinfo.FrontendCommit = origBuildinfoFrontendCommit
+		buildinfo.FrontendRef = origBuildinfoFrontendRef
+	})
+
+	fetchBranchCommitForUpdateCheck = func(ctx context.Context, client *http.Client, repo string, channel string) (branchCommitInfo, error) {
+		switch strings.TrimSpace(repo) {
+		case "kittors/CliRelay":
+			return branchCommitInfo{SHA: "aaaaaaaaaaaaaaaa", HTMLURL: "https://example.com/" + repo}, nil
+		case "kittors/codeProxy":
+			return branchCommitInfo{SHA: buildinfo.FrontendCommit, HTMLURL: "https://example.com/" + repo}, nil
+		default:
+			return branchCommitInfo{SHA: buildinfo.FrontendCommit, HTMLURL: "https://example.com/" + repo}, nil
+		}
 	}
-	if progress.Stage != "pulling" {
-		t.Fatalf("Stage = %q, want pulling", progress.Stage)
+	fetchLatestReleaseInfoForUpdateCheck = func(ctx context.Context, client *http.Client, repo string) (releaseInfo, error) {
+		return releaseInfo{}, nil
 	}
-	if progress.TargetVersion != "dev-abcdef1" {
-		t.Fatalf("TargetVersion = %q, want dev-abcdef1", progress.TargetVersion)
-	}
-	if len(progress.Logs) != 1 || progress.Logs[0].Message != "docker compose pull clirelay" {
-		t.Fatalf("Logs = %+v, want updater log entry", progress.Logs)
+
+	router := gin.New()
+	cfg := &config.Config{}
+	cfg.AutoUpdate.Enabled = true
+	cfg.AutoUpdate.Channel = "main"
+	cfg.AutoUpdate.Repository = "https://github.com/kittors/CliRelay"
+	cfg.RemoteManagement.PanelGitHubRepository = "https://github.com/kittors/codeProxy"
+	handler := NewHandler(cfg, filepath.Join(t.TempDir(), "config.yaml"), nil)
+	buildinfo.Version = "main-bbbbbbbb"
+	buildinfo.Commit = "bbbbbbbb"
+	buildinfo.BuildDate = "2026-05-10T00:00:00Z"
+	buildinfo.FrontendVersion = "panel-main-bbbbbbb"
+	buildinfo.FrontendCommit = "bbbbbbbb"
+	buildinfo.FrontendRef = "main"
+
+	router.POST("/update/apply", handler.ApplyUpdate)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/update/apply", nil)
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotImplemented {
+		t.Fatalf("POST /update/apply status = %d, body=%s", rec.Code, rec.Body.String())
 	}
 }
 

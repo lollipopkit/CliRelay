@@ -47,8 +47,6 @@ export interface AutoUpdateConfig {
   enabled?: boolean;
   channel?: "main" | "dev" | "auto" | string;
   repository?: string;
-  dockerImage?: string;
-  updaterUrl?: string;
 }
 
 export interface Config {

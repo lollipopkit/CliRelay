@@ -62,15 +62,12 @@ remote-management:
   # GitHub repository for the management control panel. Accepts a repository URL or releases API URL.
   panel-github-repository: "https://github.com/kittors/codeProxy"
 
-# Docker-first automatic update checks. The updater sidecar is installed by the
-# Docker Compose deployment path; non-Docker deployments can disable this.
+# Docker-first automatic update checks.
 auto-update:
   enabled: true
   # main is the default stable update channel; use dev to follow dev images.
   channel: main
   repository: https://github.com/kittors/CliRelay
-  docker-image: ghcr.io/kittors/clirelay
-  updater-url: http://clirelay-updater:8320
 
 # Authentication directory (supports ~ for home directory).
 # In Docker/cloud deployments, AUTH_PATH overrides this value at runtime.

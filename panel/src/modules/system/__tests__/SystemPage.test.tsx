@@ -334,7 +334,7 @@ describe("SystemPage", () => {
     expect(screen.getByTestId("update-image-value")).toHaveClass("break-words");
   });
 
-  test("shows updater sidecar unavailable warning only once", async () => {
+  test("shows updater unavailable warning only once", async () => {
     mocks.check.mockResolvedValue({
       enabled: true,
       update_available: true,
@@ -353,7 +353,7 @@ describe("SystemPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: /check docker update/i }));
     const dialog = await screen.findByRole("dialog");
 
-    expect(within(dialog).getAllByText(/updater sidecar/i, { exact: false })).toHaveLength(1);
+    expect(within(dialog).getByText(/updater support/i, { exact: false })).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: /update now/i })).toBeDisabled();
   });
 

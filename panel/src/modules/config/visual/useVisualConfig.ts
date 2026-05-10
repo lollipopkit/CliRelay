@@ -495,10 +495,6 @@ export function useVisualConfig() {
         usageStatisticsEnabled: Boolean(parsed["usage-statistics-enabled"]),
         autoUpdateEnabled: Boolean(autoUpdate?.enabled ?? true),
         autoUpdateChannel: normalizeAutoUpdateChannel(autoUpdate?.channel),
-        autoUpdateDockerImage:
-          typeof autoUpdate?.["docker-image"] === "string" && autoUpdate["docker-image"].trim()
-            ? autoUpdate["docker-image"]
-            : DEFAULT_VISUAL_VALUES.autoUpdateDockerImage,
 
         proxyUrl: typeof parsed["proxy-url"] === "string" ? parsed["proxy-url"] : "",
         preferIPv4: Boolean(parsed["prefer-ipv4"]),
@@ -610,13 +606,14 @@ export function useVisualConfig() {
         if (
           hasOwn(parsed, "auto-update") ||
           !values.autoUpdateEnabled ||
-          values.autoUpdateChannel !== "main" ||
-          values.autoUpdateDockerImage.trim()
+          values.autoUpdateChannel !== "main"
         ) {
           const autoUpdate = ensureRecord(parsed, "auto-update");
           autoUpdate.enabled = values.autoUpdateEnabled;
           autoUpdate.channel = values.autoUpdateChannel;
-          setString(autoUpdate, "docker-image", values.autoUpdateDockerImage);
+          if (hasOwn(autoUpdate, "docker-image")) {
+            delete autoUpdate["docker-image"];
+          }
           deleteIfEmpty(parsed, "auto-update");
         }
 

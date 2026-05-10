@@ -1,7 +1,6 @@
 package management
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -21,12 +20,9 @@ import (
 )
 
 const (
-	updateHTTPTimeout     = 10 * time.Second
-	updaterHealthTimeout  = 2 * time.Second
-	updaterTokenEnv       = "CLIRELAY_UPDATER_TOKEN"
-	githubTokenEnv        = "CLIRELAY_GITHUB_TOKEN"
-	autoUpdateChannelEnv  = "CLIRELAY_UPDATE_CHANNEL"
-	defaultUpdaterService = "clirelay"
+	updateHTTPTimeout    = 10 * time.Second
+	githubTokenEnv       = "CLIRELAY_GITHUB_TOKEN"
+	autoUpdateChannelEnv = "CLIRELAY_UPDATE_CHANNEL"
 )
 
 type updateCheckResponse struct {
@@ -50,30 +46,6 @@ type updateCheckResponse struct {
 	UpdateAvailable   bool   `json:"update_available"`
 	UpdaterAvailable  bool   `json:"updater_available"`
 	Message           string `json:"message,omitempty"`
-}
-
-type updateProgressLogEntry struct {
-	Timestamp string `json:"timestamp"`
-	Stream    string `json:"stream"`
-	Message   string `json:"message"`
-}
-
-type updateProgressResponse struct {
-	Status          string                   `json:"status"`
-	Stage           string                   `json:"stage"`
-	Message         string                   `json:"message,omitempty"`
-	Service         string                   `json:"service,omitempty"`
-	TargetImage     string                   `json:"target_image,omitempty"`
-	TargetTag       string                   `json:"target_tag,omitempty"`
-	TargetVersion   string                   `json:"target_version,omitempty"`
-	TargetCommit    string                   `json:"target_commit,omitempty"`
-	TargetUIVersion string                   `json:"target_ui_version,omitempty"`
-	TargetUICommit  string                   `json:"target_ui_commit,omitempty"`
-	TargetChannel   string                   `json:"target_channel,omitempty"`
-	StartedAt       string                   `json:"started_at,omitempty"`
-	UpdatedAt       string                   `json:"updated_at,omitempty"`
-	FinishedAt      string                   `json:"finished_at,omitempty"`
-	Logs            []updateProgressLogEntry `json:"logs,omitempty"`
 }
 
 type branchCommitInfo struct {
@@ -141,12 +113,10 @@ func (h *Handler) GetCurrentUpdateState(c *gin.Context) {
 }
 
 func (h *Handler) GetUpdateProgress(c *gin.Context) {
-	progress, err := h.fetchUpdateProgress(c.Request.Context())
-	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "update_progress_failed", "message": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, progress)
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"error":   "updater_sidecar_removed",
+		"message": "Update progress polling is unavailable because panel-side updater support has been removed.",
+	})
 }
 
 func (h *Handler) ApplyUpdate(c *gin.Context) {
@@ -169,46 +139,11 @@ func (h *Handler) ApplyUpdate(c *gin.Context) {
 		return
 	}
 
-	payload := map[string]string{
-		"image":      check.DockerImage,
-		"tag":        check.DockerTag,
-		"channel":    check.TargetChannel,
-		"version":    check.LatestVersion,
-		"commit":     check.LatestCommit,
-		"ui_version": check.LatestUIVersion,
-		"ui_commit":  check.LatestUICommit,
-		"service":    updaterTargetService(),
-	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "marshal_failed", "message": err.Error()})
-		return
-	}
-
-	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, joinURLPath(resolveUpdaterURL(h.cfg), "/v1/update"), bytes.NewReader(body))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "request_create_failed", "message": err.Error()})
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if token := updaterToken(); token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-
-	client := &http.Client{Timeout: updateHTTPTimeout}
-	resp, err := client.Do(req)
-	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "updater_unreachable", "message": err.Error()})
-		return
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		data, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		c.JSON(http.StatusBadGateway, gin.H{"error": "updater_failed", "message": strings.TrimSpace(string(data))})
-		return
-	}
-
-	c.JSON(http.StatusAccepted, gin.H{"status": "accepted", "target": check})
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"error":   "updater_sidecar_removed",
+		"message": "Apply-update is unavailable because panel-side updater support has been removed. Upgrade manually by pulling a new CLIProxyAPI image and restarting the service.",
+		"target":  check,
+	})
 }
 
 func (h *Handler) buildUpdateCheck(ctx context.Context) (*updateCheckResponse, error) {
@@ -274,12 +209,11 @@ func (h *Handler) buildUpdateCheck(ctx context.Context) (*updateCheckResponse, e
 		LatestUIVersion:   latestUIVersion,
 		LatestUICommit:    latestUICommit,
 		LatestUICommitURL: latestUICommitURL,
-		DockerImage:       cfg.AutoUpdate.DockerImage,
 		DockerTag:         dockerTagForChannel(channel, branch.SHA),
 		ReleaseNotes:      releaseNotes,
 		ReleaseURL:        strings.TrimSpace(release.HTMLURL),
 		UpdateAvailable:   cfg.AutoUpdate.Enabled && (backendUpdateAvailable || frontendUpdateAvailable),
-		UpdaterAvailable:  checkUpdaterAvailable(ctx, cfg),
+		UpdaterAvailable:  false,
 	}
 	if !resp.Enabled {
 		resp.Message = "auto update disabled"
@@ -313,9 +247,8 @@ func (h *Handler) buildCurrentUpdateState(ctx context.Context) *updateCheckRespo
 		CurrentUICommit:  currentUICommit,
 		BuildDate:        buildinfo.BuildDate,
 		TargetChannel:    channel,
-		DockerImage:      cfg.AutoUpdate.DockerImage,
 		DockerTag:        dockerTagForChannel(channel, ""),
-		UpdaterAvailable: checkUpdaterAvailable(ctx, cfg),
+		UpdaterAvailable: false,
 	}
 }
 
@@ -542,80 +475,4 @@ func githubAPIToken() string {
 		return token
 	}
 	return strings.TrimSpace(os.Getenv("GITHUB_TOKEN"))
-}
-
-func resolveUpdaterURL(cfg *config.Config) string {
-	if fromEnv := strings.TrimSpace(os.Getenv("CLIRELAY_UPDATER_URL")); fromEnv != "" {
-		return fromEnv
-	}
-	if cfg != nil && cfg.AutoUpdate.UpdaterURL != "" {
-		return cfg.AutoUpdate.UpdaterURL
-	}
-	return config.DefaultAutoUpdateUpdaterURL
-}
-
-func updaterToken() string {
-	return strings.TrimSpace(os.Getenv(updaterTokenEnv))
-}
-
-func updaterTargetService() string {
-	if service := strings.TrimSpace(os.Getenv("CLIRELAY_TARGET_SERVICE")); service != "" {
-		return service
-	}
-	return defaultUpdaterService
-}
-
-func checkUpdaterAvailable(ctx context.Context, cfg *config.Config) bool {
-	ctx, cancel := context.WithTimeout(ctx, updaterHealthTimeout)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, joinURLPath(resolveUpdaterURL(cfg), "/v1/health"), nil)
-	if err != nil {
-		return false
-	}
-	if token := updaterToken(); token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return false
-	}
-	defer resp.Body.Close()
-	return resp.StatusCode >= 200 && resp.StatusCode < 300
-}
-
-func (h *Handler) fetchUpdateProgress(ctx context.Context) (*updateProgressResponse, error) {
-	var cfg *config.Config
-	if h != nil {
-		cfg = h.cfg
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, joinURLPath(resolveUpdaterURL(cfg), "/v1/status"), nil)
-	if err != nil {
-		return nil, err
-	}
-	if token := updaterToken(); token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-	client := &http.Client{Timeout: updateHTTPTimeout}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		data, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		return nil, fmt.Errorf("updater status %d: %s", resp.StatusCode, strings.TrimSpace(string(data)))
-	}
-	var payload updateProgressResponse
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		return nil, err
-	}
-	return &payload, nil
-}
-
-func joinURLPath(base string, path string) string {
-	trimmed := strings.TrimRight(strings.TrimSpace(base), "/")
-	if trimmed == "" {
-		trimmed = config.DefaultAutoUpdateUpdaterURL
-	}
-	return trimmed + "/" + strings.TrimLeft(path, "/")
 }

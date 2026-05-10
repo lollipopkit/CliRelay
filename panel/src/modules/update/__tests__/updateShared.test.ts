@@ -99,4 +99,27 @@ describe("applyUpdateFlow", () => {
     });
     expect(onSuccess).toHaveBeenCalledTimes(1);
   });
+
+  test("aborts before applying when updater is unavailable", async () => {
+    const notify = vi.fn();
+
+    const result = await applyUpdateFlow({
+      candidate: {
+        enabled: true,
+        update_available: true,
+        updater_available: false,
+      },
+      heartbeatIntervalMs: 1,
+      heartbeatTimeoutMs: 20,
+      notify,
+      t: ((key: string) => key) as never,
+    });
+
+    expect(result).toBe(false);
+    expect(mocks.apply).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith({
+      type: "warning",
+      message: "auto_update.updater_unavailable",
+    });
+  });
 });

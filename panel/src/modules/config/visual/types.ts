@@ -90,7 +90,6 @@ export type VisualConfigValues = {
   usageStatisticsEnabled: boolean;
   autoUpdateEnabled: boolean;
   autoUpdateChannel: "main" | "dev";
-  autoUpdateDockerImage: string;
 
   proxyUrl: string;
   preferIPv4: boolean;
@@ -145,7 +144,6 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
   usageStatisticsEnabled: false,
   autoUpdateEnabled: true,
   autoUpdateChannel: "main",
-  autoUpdateDockerImage: "ghcr.io/kittors/clirelay",
   proxyUrl: "",
   preferIPv4: false,
   forceModelPrefix: false,

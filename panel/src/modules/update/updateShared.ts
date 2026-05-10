@@ -199,6 +199,14 @@ export const applyUpdateFlow = async ({
   onSuccess?: () => void;
   t: TFunction;
 }) => {
+  if (candidate?.updater_available === false) {
+    notify({
+      type: "warning",
+      message: t("auto_update.updater_unavailable"),
+    });
+    return false;
+  }
+
   const response = await updateApi.apply();
   const target = response.target ?? candidate;
   const result = await waitForAppliedTarget({
