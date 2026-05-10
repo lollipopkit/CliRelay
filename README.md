@@ -28,7 +28,7 @@
 
 > **✨ Heavily enhanced fork of the [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) project** — rebuilt with a production-grade management layer, web control panel hosting, and a terminal TUI for day-2 operations.
 
-CliRelay turns AI CLI subscriptions, OAuth credentials, API keys, and compatible upstream services into one managed API layer. It proxies Claude Code, Gemini CLI, OpenAI Codex, Amp CLI, OpenAI-compatible clients, and other AI coding tools through a unified endpoint, then adds routing groups, failover, request logging, quota control, model pricing, image-generation support, API-key self-service, online updates, `/manage` web hosting, and terminal management workflows around that traffic.
+CliRelay turns AI CLI subscriptions, OAuth credentials, API keys, and compatible upstream services into one managed API layer. It proxies Claude Code, Gemini CLI, OpenAI Codex, Amp CLI, OpenAI-compatible clients, and other AI coding tools through a unified endpoint, then adds routing groups, failover, request logging, quota control, model pricing, image-generation support, API-key self-service, `/manage` web hosting, and terminal management workflows around that traffic.
 
 ```
 ┌───────────────────────┐         ┌──────────────┐         ┌────────────────────┐
@@ -107,11 +107,10 @@ CliRelay turns AI CLI subscriptions, OAuth credentials, API keys, and compatible
 
 | Feature | Description |
 |:--------|:------------|
-| 🖥️ **Visual Management Panel** | Configure providers, auth, API keys, models, routing, logs, updates, and system status from `/manage` |
+| 🖥️ **Visual Management Panel** | Configure providers, auth, API keys, models, routing, logs, and system status from `/manage` |
 | 🌐 **Chinese / English UI** | Built-in i18n for the management panel and Compose/TUI language selection |
 | 🌙 **Dark Mode** | Full dark theme for long-running operational sessions |
 | 🧬 **Visual Config Editor** | Edit runtime config visually or inspect source YAML when you need exact control |
-| 🔄 **Update Checks** | Check versions, review update notes, and choose when to update the deployment |
 | 📥 **CC Switch Import** | Import cc-switch style configuration into the managed model/channel workspace |
 
 ### 🗄️ Data Persistence
@@ -167,7 +166,7 @@ make dev-up
 
 Common commands:
 
-- `make dev-up`: start server in background using `go run ./cmd/server` and write logs to `.tmp/cli-relay-dev.log`
+- `make dev-up`: start both backend and panel Vite dev server (backend on `go run ./cmd/server`, panel on Vite port 5173); backend is started with `MANAGEMENT_DEV_URL` to proxy `/manage` to Vite and frontend hot updates are available immediately
 - `make dev-restart`: stop current dev process then start again
 - `make dev-down`: stop background dev process started by `dev-up`
 
@@ -188,7 +187,7 @@ By default, client API routes (`/v1`, `/v1beta`) require an API key. To run with
 After startup:
 
 - API endpoint: `http://localhost:8317`
-- Web panel: `http://localhost:8317/manage`
+- Web panel: `http://localhost:8317/manage` (served by Vite in dev), or directly `http://localhost:5173/manage`
 - Logs: `docker compose logs -f cli-proxy-api`
 - Restart: `docker compose restart cli-proxy-api`
 - Stop: `docker compose down`
@@ -198,20 +197,6 @@ After startup:
 Set `CLIRELAY_LOCALE=en` or `CLIRELAY_LOCALE=zh` in your Compose environment to control the default TUI language.
 
 For cloud platforms that only allow one mounted directory, set `AUTH_PATH` to the authentication directory inside the container, for example `/CLIProxyAPI/auths`. `CLI_PROXY_AUTH_PATH` remains the host-side bind path, while `AUTH_PATH` is also used to override `auth-dir` at runtime.
-
-To disable automatic update prompts, set the following in `config.yaml` or turn off **Automatic Update Checks** in the Config page:
-
-```yaml
-auto-update:
-  enabled: false
-```
-
-Update checks follow the stable `main` Docker image by default. To test dev builds, set `channel: dev` in `config.yaml` or choose **Development (dev)** from **Update Channel** in the Config page:
-
-```yaml
-auto-update:
-  channel: dev
-```
 
 ### 🗄️ Enabling Data Persistence
 

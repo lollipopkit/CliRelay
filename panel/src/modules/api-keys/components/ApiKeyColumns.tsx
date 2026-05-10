@@ -65,21 +65,6 @@ export const createApiKeyColumns = ({
     ),
   },
   {
-    key: "name",
-    label: t("api_keys_page.col_name"),
-    width: "w-[120px] min-w-[120px]",
-    cellClassName: "font-medium",
-    render: (row) => (
-      <OverflowTooltip content={row.name || t("api_keys_page.unnamed")} className="block min-w-0">
-        <span className="block min-w-0 truncate">
-          {row.name || (
-            <span className="text-slate-400 dark:text-white/40">{t("common.unnamed")}</span>
-          )}
-        </span>
-      </OverflowTooltip>
-    ),
-  },
-  {
     key: "actions",
     label: t("api_keys_page.col_actions"),
     width: "w-[188px] min-w-[188px]",
@@ -145,6 +130,21 @@ export const createApiKeyColumns = ({
         </div>
       );
     },
+  },
+  {
+    key: "name",
+    label: t("api_keys_page.col_name"),
+    width: "w-[120px] min-w-[120px]",
+    cellClassName: "font-medium",
+    render: (row) => (
+      <OverflowTooltip content={row.name || t("api_keys_page.unnamed")} className="block min-w-0">
+        <span className="block min-w-0 truncate">
+          {row.name || (
+            <span className="text-slate-400 dark:text-white/40">{t("common.unnamed")}</span>
+          )}
+        </span>
+      </OverflowTooltip>
+    ),
   },
   {
     key: "dailyLimit",

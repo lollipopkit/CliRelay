@@ -14,13 +14,13 @@ import {
   Server,
   Layers,
 } from "lucide-react";
+import { updateApi, type UpdateCheckResponse } from "@/lib/http/apis";
 import { apiClient } from "@/lib/http/client";
 import { useAuth } from "@/modules/auth/AuthProvider";
 import { Button } from "@/modules/ui/Button";
 import { Card } from "@/modules/ui/Card";
 import { TextInput } from "@/modules/ui/Input";
 import { useToast } from "@/modules/ui/ToastProvider";
-import { UpdateDetailsCard } from "@/modules/update/UpdateDetailsCard";
 import { loadConfiguredModelAvailability } from "@/modules/models/modelAvailability";
 
 // Vendor SVG icons
@@ -212,6 +212,101 @@ function VendorIcon({ modelId, size = 14 }: { modelId: string; size?: number }) 
   );
 }
 
+function shortCommit(commit?: string) {
+  const trimmed = commit?.trim() ?? "";
+  return trimmed.length > 7 ? trimmed.slice(0, 7) : trimmed || "--";
+}
+
+function UpdateCheckCard() {
+  const { t } = useTranslation();
+  const { notify } = useToast();
+  const [checking, setChecking] = useState(false);
+  const [state, setState] = useState<UpdateCheckResponse | null>(null);
+
+  const checkUpdate = useCallback(async () => {
+    setChecking(true);
+    try {
+      const next = await updateApi.check();
+      setState(next);
+    } catch (err: unknown) {
+      notify({
+        type: "error",
+        message: err instanceof Error ? err.message : t("system_page.update_check_failed"),
+      });
+    } finally {
+      setChecking(false);
+    }
+  }, [notify, t]);
+
+  return (
+    <Card
+      title={t("system_page.update_check")}
+      description={t("system_page.update_check_desc")}
+      actions={
+        <Button size="sm" variant="primary" onClick={checkUpdate} disabled={checking}>
+          <RefreshCw size={14} className={checking ? "animate-spin" : undefined} />
+          {t("system_page.check_update")}
+        </Button>
+      }
+    >
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/40">
+          <p className="text-xs font-medium text-slate-500 dark:text-white/50">
+            {t("system_page.current_version")}
+          </p>
+          <p className="mt-1 truncate font-mono text-sm font-semibold text-slate-900 dark:text-white">
+            {state?.current_version || "--"}
+          </p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/40">
+          <p className="text-xs font-medium text-slate-500 dark:text-white/50">
+            {t("system_page.latest_version")}
+          </p>
+          <p className="mt-1 truncate font-mono text-sm font-semibold text-slate-900 dark:text-white">
+            {state?.latest_version || "--"}
+          </p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/40">
+          <p className="text-xs font-medium text-slate-500 dark:text-white/50">
+            {t("system_page.ui_version")}
+          </p>
+          <p className="mt-1 truncate font-mono text-sm font-semibold text-slate-900 dark:text-white">
+            {state?.latest_ui_version || state?.current_ui_version || "--"}
+          </p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/40">
+          <p className="text-xs font-medium text-slate-500 dark:text-white/50">
+            {t("system_page.update_status")}
+          </p>
+          <p
+            className={[
+              "mt-1 text-sm font-semibold",
+              state?.update_available
+                ? "text-amber-700 dark:text-amber-300"
+                : "text-emerald-700 dark:text-emerald-300",
+            ].join(" ")}
+          >
+            {state
+              ? state.update_available
+                ? t("system_page.update_available")
+                : t("system_page.up_to_date")
+              : t("system_page.not_checked")}
+          </p>
+        </div>
+      </div>
+      {state ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-white/50">
+          <span>{t("system_page.channel", { channel: state.target_channel || "--" })}</span>
+          <span>·</span>
+          <span>{t("system_page.current_commit", { commit: shortCommit(state.current_commit) })}</span>
+          <span>·</span>
+          <span>{t("system_page.latest_commit", { commit: shortCommit(state.latest_commit) })}</span>
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════════
    InfoCard — compact grid card with icon
    ═══════════════════════════════════════════════════════════ */
@@ -343,13 +438,7 @@ function ModelTag({ id }: { id: string }) {
 
 const _AUTO_REFRESH_INTERVAL = 30_000;
 
-export function SystemPage({
-  updateHeartbeatIntervalMs,
-  updateHeartbeatTimeoutMs,
-}: {
-  updateHeartbeatIntervalMs?: number;
-  updateHeartbeatTimeoutMs?: number;
-} = {}) {
+export function SystemPage() {
   const { t } = useTranslation();
   const auth = useAuth();
 
@@ -464,10 +553,7 @@ export function SystemPage({
         />
       </div>
 
-      <UpdateDetailsCard
-        heartbeatIntervalMs={updateHeartbeatIntervalMs}
-        heartbeatTimeoutMs={updateHeartbeatTimeoutMs}
-      />
+      <UpdateCheckCard />
 
       {/* ── Model List ── */}
       <Card padding="none" className="overflow-hidden" bodyClassName="mt-0">

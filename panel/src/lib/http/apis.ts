@@ -14,7 +14,6 @@ export { modelsApi } from "./apis/models";
 export { versionApi } from "./apis/version";
 export { quotaApi } from "./apis/quota";
 export { identityFingerprintApi } from "./apis/identity-fingerprint";
-export { updateApi } from "./apis/update";
 export { imageGenerationApi } from "./apis/image-generation";
 export { proxiesApi } from "./apis/proxies";
-export type { UpdateApplyResponse, UpdateCheckResponse } from "./apis/update";
+export { updateApi, type UpdateCheckResponse } from "./apis/update";

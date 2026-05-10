@@ -5,6 +5,53 @@
 
 @theme {
   --font-sans: "Inter", "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --color-primary: var(--primary-color);
+  --color-primary-foreground: var(--primary-contrast);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-highlight: var(--highlight-color);
+  --color-ring: var(--primary-color);
+  --color-ring-offset: var(--bg-primary);
+  --color-background: var(--bg-primary);
+  --color-foreground: var(--text-primary);
+  --color-muted: var(--bg-secondary);
+  --color-muted-foreground: var(--text-secondary);
+
+  --color-blue-50: color-mix(in srgb, #ffffff 96%, var(--highlight-color) 4%);
+  --color-blue-100: color-mix(in srgb, #ffffff 92%, var(--highlight-color) 8%);
+  --color-blue-200: color-mix(in srgb, #ffffff 86%, var(--highlight-color) 14%);
+  --color-blue-300: color-mix(in srgb, #ffffff 78%, var(--highlight-color) 22%);
+  --color-blue-400: color-mix(in srgb, #ffffff 66%, var(--highlight-color) 34%);
+  --color-blue-500: var(--highlight-color);
+  --color-blue-600: color-mix(in srgb, #000000 10%, var(--highlight-color) 90%);
+  --color-blue-700: color-mix(in srgb, #000000 22%, var(--highlight-color) 78%);
+  --color-blue-800: color-mix(in srgb, #000000 34%, var(--highlight-color) 66%);
+  --color-blue-900: color-mix(in srgb, #000000 50%, var(--highlight-color) 50%);
+  --color-blue-950: color-mix(in srgb, #000000 72%, var(--highlight-color) 28%);
+
+  --color-sky-50: color-mix(in srgb, #ffffff 95%, var(--highlight-color) 5%);
+  --color-sky-100: color-mix(in srgb, #ffffff 91%, var(--highlight-color) 9%);
+  --color-sky-200: color-mix(in srgb, #ffffff 84%, var(--highlight-color) 16%);
+  --color-sky-300: color-mix(in srgb, #ffffff 76%, var(--highlight-color) 24%);
+  --color-sky-400: color-mix(in srgb, #ffffff 64%, var(--highlight-color) 36%);
+  --color-sky-500: color-mix(in srgb, #ffffff 4%, var(--highlight-color) 96%);
+  --color-sky-600: color-mix(in srgb, #000000 8%, var(--highlight-color) 92%);
+  --color-sky-700: color-mix(in srgb, #000000 20%, var(--highlight-color) 80%);
+  --color-sky-800: color-mix(in srgb, #000000 38%, var(--highlight-color) 62%);
+  --color-sky-900: color-mix(in srgb, #000000 54%, var(--highlight-color) 46%);
+  --color-sky-950: color-mix(in srgb, #000000 76%, var(--highlight-color) 24%);
+
+  --color-indigo-50: color-mix(in srgb, #ffffff 94%, var(--highlight-color) 6%);
+  --color-indigo-100: color-mix(in srgb, #ffffff 90%, var(--highlight-color) 10%);
+  --color-indigo-200: color-mix(in srgb, #ffffff 82%, var(--highlight-color) 18%);
+  --color-indigo-300: color-mix(in srgb, #ffffff 74%, var(--highlight-color) 26%);
+  --color-indigo-400: color-mix(in srgb, #ffffff 62%, var(--highlight-color) 38%);
+  --color-indigo-500: var(--highlight-color);
+  --color-indigo-600: color-mix(in srgb, #000000 12%, var(--highlight-color) 88%);
+  --color-indigo-700: color-mix(in srgb, #000000 24%, var(--highlight-color) 76%);
+  --color-indigo-800: color-mix(in srgb, #000000 40%, var(--highlight-color) 60%);
+  --color-indigo-900: color-mix(in srgb, #000000 58%, var(--highlight-color) 42%);
+  --color-indigo-950: color-mix(in srgb, #000000 74%, var(--highlight-color) 26%);
 }
 
 /* 统一交互元素鼠标样式，便于用户识别可点击区域 */

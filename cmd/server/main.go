@@ -22,7 +22,6 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/cmd"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/logging"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/managementasset"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/misc"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/store"
 	_ "github.com/router-for-me/CLIProxyAPI/v6/internal/translator"
@@ -446,8 +445,6 @@ func main() {
 	} else {
 		cfg.AuthDir = resolvedAuthDir
 	}
-	managementasset.SetCurrentConfig(cfg)
-
 	// Create login options to be used in authentication flows.
 	options := &cmd.LoginOptions{
 		NoBrowser:    noBrowser,
@@ -521,7 +518,6 @@ func runServiceMode(cfg *config.Config, configFilePath, password string, mode cl
 		return
 	}
 	if !mode.tuiMode {
-		managementasset.StartAutoUpdater(context.Background(), configFilePath)
 		cmd.StartService(cfg, configFilePath, password)
 		return
 	}
@@ -535,7 +531,6 @@ func runServiceMode(cfg *config.Config, configFilePath, password string, mode cl
 }
 
 func runStandaloneTUI(cfg *config.Config, configFilePath, password string) {
-	managementasset.StartAutoUpdater(context.Background(), configFilePath)
 	hook := tui.NewLogHook(2000)
 	hook.SetFormatter(&logging.LogFormatter{})
 	log.AddHook(hook)

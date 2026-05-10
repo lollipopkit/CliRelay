@@ -45,7 +45,7 @@ const BUTTON_VARIANT_CLASSES: Record<Exclude<ButtonVariant, "secondary" | "dange
   default:
     "bg-[#EBEBEC] text-[#18181B] hover:bg-[#E4E4E7] active:bg-[#D4D4D8] focus-visible:ring-black/10 dark:bg-[#27272A] dark:text-white dark:hover:bg-[#303036] dark:active:bg-[#3F3F46] dark:focus-visible:ring-white/15",
   primary:
-    "bg-[#18181B] text-white hover:bg-[#27272A] active:bg-[#09090B] focus-visible:ring-black/20 dark:bg-white dark:text-[#18181B] dark:hover:bg-[#E4E4E7] dark:active:bg-[#D4D4D8] dark:focus-visible:ring-white/15",
+    "bg-primary text-primary-foreground hover:bg-primary-hover active:bg-primary-active focus-visible:ring-primary/25",
   error:
     "bg-rose-600 text-white hover:bg-rose-500 active:bg-rose-700 focus-visible:ring-rose-400/35 dark:bg-rose-500 dark:hover:bg-rose-400 dark:active:bg-rose-600 dark:focus-visible:ring-rose-300/20",
   success:

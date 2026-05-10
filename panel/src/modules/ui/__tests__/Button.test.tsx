@@ -30,7 +30,10 @@ describe("Button", () => {
       </>,
     );
 
-    expect(screen.getByRole("button", { name: "Primary" })).toHaveClass("bg-[#18181B]");
+    expect(screen.getByRole("button", { name: "Primary" })).toHaveClass(
+      "bg-primary",
+      "text-primary-foreground",
+    );
     expect(screen.getByRole("button", { name: "Secondary" })).toHaveClass(
       "border-0",
       "bg-[#EBEBEC]",

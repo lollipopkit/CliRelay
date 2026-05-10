@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"path"
@@ -299,7 +300,7 @@ func NewServer(cfg *config.Config, authManager *auth.Manager, accessManager *sdk
 	if authManager != nil {
 		authManager.SetRetryConfig(cfg.RequestRetry, time.Duration(cfg.MaxRetryInterval)*time.Second)
 	}
-	managementasset.SetCurrentConfig(cfg)
+
 	auth.SetQuotaCooldownDisabled(cfg.DisableCooling)
 	// Initialize management handler
 	s.mgmt = managementHandlers.NewHandler(cfg, configFilePath, authManager)
@@ -671,14 +672,6 @@ func (s *Server) registerManagementRoutes() {
 		mgmt.GET("/latest-version", s.mgmt.GetLatestVersion)
 		mgmt.GET("/update/check", s.mgmt.CheckUpdate)
 		mgmt.GET("/update/current", s.mgmt.GetCurrentUpdateState)
-		mgmt.GET("/update/progress", s.mgmt.GetUpdateProgress)
-		mgmt.POST("/update/apply", s.mgmt.ApplyUpdate)
-		mgmt.GET("/auto-update/enabled", s.mgmt.GetAutoUpdateEnabled)
-		mgmt.PUT("/auto-update/enabled", s.mgmt.PutAutoUpdateEnabled)
-		mgmt.PATCH("/auto-update/enabled", s.mgmt.PutAutoUpdateEnabled)
-		mgmt.GET("/auto-update/channel", s.mgmt.GetAutoUpdateChannel)
-		mgmt.PUT("/auto-update/channel", s.mgmt.PutAutoUpdateChannel)
-		mgmt.PATCH("/auto-update/channel", s.mgmt.PutAutoUpdateChannel)
 
 		mgmt.GET("/debug", s.mgmt.GetDebug)
 		mgmt.PUT("/debug", s.mgmt.PutDebug)
@@ -884,6 +877,11 @@ func (s *Server) serveManagementControlPanel(c *gin.Context) {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
+	if strings.TrimSpace(os.Getenv("MANAGEMENT_DEV_URL")) != "" {
+		if s.serveManagementControlPanelFromDevServer(c) {
+			return
+		}
+	}
 
 	if managementasset.IsEmbeddedPanelAvailable() {
 		if s.tryServeEmbeddedManagementPanel(c) {
@@ -904,16 +902,8 @@ func (s *Server) serveManagementControlPanel(c *gin.Context) {
 		}
 		if _, err := os.Stat(filePath); err != nil {
 			if os.IsNotExist(err) {
-				reqCtx := context.Background()
-				if c != nil && c.Request != nil {
-					if requestCtx := c.Request.Context(); requestCtx != nil {
-						reqCtx = requestCtx
-					}
-				}
-				if !managementasset.EnsureLatestManagementHTML(reqCtx, managementasset.StaticDir(s.configFilePath), cfg.ProxyURL) {
-					c.AbortWithStatus(http.StatusNotFound)
-					return
-				}
+				c.AbortWithStatus(http.StatusNotFound)
+				return
 			} else {
 				log.WithError(err).Error("failed to stat management control panel asset")
 				c.AbortWithStatus(http.StatusInternalServerError)
@@ -952,6 +942,49 @@ func (s *Server) serveManagementControlPanel(c *gin.Context) {
 	// HTML files should not be cached – always serve fresh.
 	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
 	c.File(htmlFile)
+}
+
+func (s *Server) serveManagementControlPanelFromDevServer(c *gin.Context) bool {
+	if c == nil || c.Request == nil {
+		return false
+	}
+	managementDevURL := strings.TrimSpace(os.Getenv("MANAGEMENT_DEV_URL"))
+	if managementDevURL == "" {
+		return false
+	}
+	target, err := url.Parse(managementDevURL)
+	if err != nil || target.Scheme == "" || target.Host == "" {
+		log.WithError(err).Warnf("invalid MANAGEMENT_DEV_URL: %q", managementDevURL)
+		return false
+	}
+
+	reqPath := strings.TrimSpace(c.Request.URL.Path)
+	if reqPath == "/management.html" {
+		reqPath = "/manage/"
+	}
+	if reqPath == "/manage" {
+		reqPath = "/manage/"
+	}
+
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	originalDirector := proxy.Director
+	proxy.Director = func(req *http.Request) {
+		originalDirector(req)
+		req.URL.Path = reqPath
+		req.Host = target.Host
+		req.URL.RawQuery = c.Request.URL.RawQuery
+		req.Header.Set("X-Forwarded-Host", req.Host)
+		req.Header.Set("X-Forwarded-Proto", target.Scheme)
+	}
+	proxy.ErrorHandler = func(responseWriter http.ResponseWriter, request *http.Request, err error) {
+		_ = responseWriter
+		_ = request
+		log.WithError(err).Warnf("management UI reverse proxy failed to %s", managementDevURL)
+		c.AbortWithStatus(http.StatusBadGateway)
+	}
+
+	proxy.ServeHTTP(c.Writer, c.Request.Clone(c.Request.Context()))
+	return true
 }
 
 func (s *Server) tryServeEmbeddedManagementPanel(c *gin.Context) bool {
@@ -1369,19 +1402,22 @@ func (s *Server) Stop(ctx context.Context) error {
 //   - gin.HandlerFunc: The CORS middleware handler
 func corsMiddleware(cfgProvider func() *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Management APIs and the embedded panel should not be callable cross-origin by default.
-		// The panel is served from the same origin, so it does not need wildcard CORS.
-		if c != nil && c.Request != nil && c.Request.URL != nil {
-			path := c.Request.URL.Path
-			if strings.HasPrefix(path, "/v0/management") || strings.HasPrefix(path, "/manage") {
-				c.Next()
-				return
-			}
+		if c == nil || c.Request == nil {
+			return
 		}
 
+		path := ""
 		origin := ""
-		if c != nil && c.Request != nil {
-			origin = strings.TrimSpace(c.Request.Header.Get("Origin"))
+
+		path = c.Request.URL.Path
+		origin = strings.TrimSpace(c.Request.Header.Get("Origin"))
+
+		// Management APIs and the embedded panel are usually same-origin.
+		// In local development, allow localhost/loopback callers to avoid CORS
+		// issues while keeping non-local origins blocked by default.
+		if isManagementRoute(path) && !isManagementDevModeEnabled() && origin != "" && !isLocalhostOrigin(origin) {
+			c.Next()
+			return
 		}
 		if origin == "" {
 			if c.Request.Method == http.MethodOptions {
@@ -1438,6 +1474,10 @@ func resolveAllowedCORSOrigin(r *http.Request, cfg *config.Config) string {
 		return origin
 	}
 
+	if isManagementRoute(r.URL.Path) && isLocalhostOrigin(origin) {
+		return origin
+	}
+
 	if isChromeExtensionOrigin(origin) {
 		return origin
 	}
@@ -1473,6 +1513,31 @@ func isChromeExtensionOrigin(origin string) bool {
 	return strings.TrimSpace(parsed.Host) != ""
 }
 
+func isManagementDevModeEnabled() bool {
+	return strings.TrimSpace(os.Getenv("MANAGEMENT_DEV_URL")) != ""
+}
+
+func isManagementRoute(path string) bool {
+	trimmed := strings.TrimSpace(path)
+	return strings.HasPrefix(trimmed, "/v0/management") || strings.HasPrefix(trimmed, "/manage")
+}
+
+func isLocalhostOrigin(origin string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(origin))
+	if err != nil || parsed == nil {
+		return false
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return false
+	}
+	if parsed.Host == "" {
+		return false
+	}
+
+	host := strings.TrimSpace(parsed.Hostname())
+	return strings.EqualFold(host, "localhost") || host == "127.0.0.1" || host == "::1"
+}
+
 // versionHeaderMiddleware returns a Gin middleware handler that adds version
 // headers to every response, allowing the frontend to display the backend version.
 //
@@ -1482,18 +1547,8 @@ func versionHeaderMiddleware(configFilePath string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("x-cpa-version", buildinfo.Version)
 		c.Header("x-cpa-build-date", buildinfo.BuildDate)
-		currentUIVersion := buildinfo.FrontendVersion
-		currentUICommit := buildinfo.FrontendCommit
-		if meta, ok := managementasset.CurrentPanelMetadata(configFilePath); ok {
-			if meta.Version != "" {
-				currentUIVersion = meta.Version
-			}
-			if meta.Commit != "" {
-				currentUICommit = meta.Commit
-			}
-		}
-		c.Header("x-cpa-ui-version", currentUIVersion)
-		c.Header("x-cpa-ui-commit", currentUICommit)
+		c.Header("x-cpa-ui-version", buildinfo.FrontendVersion)
+		c.Header("x-cpa-ui-commit", buildinfo.FrontendCommit)
 		c.Next()
 	}
 }
@@ -1600,7 +1655,7 @@ func (s *Server) UpdateClients(cfg *config.Config) {
 	if oldCfg != nil && s.wsAuthChanged != nil && oldCfg.WebsocketAuth != cfg.WebsocketAuth {
 		s.wsAuthChanged(oldCfg.WebsocketAuth, cfg.WebsocketAuth)
 	}
-	managementasset.SetCurrentConfig(cfg)
+
 	// Save YAML snapshot for next comparison
 	s.oldConfigYaml, _ = yaml.Marshal(cfg)
 

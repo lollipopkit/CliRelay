@@ -127,10 +127,6 @@ function setIntFromString(obj: Record<string, unknown>, key: string, value: unkn
   if (hasOwn(obj, key)) delete obj[key];
 }
 
-function normalizeAutoUpdateChannel(value: unknown): "main" | "dev" {
-  return typeof value === "string" && value.trim().toLowerCase() === "dev" ? "dev" : "main";
-}
-
 function parsePayloadParamValue(raw: unknown): { valueType: PayloadParamValueType; value: string } {
   if (typeof raw === "number") {
     return { valueType: "number", value: String(raw) };
@@ -461,8 +457,6 @@ export function useVisualConfig() {
       const routing = asRecord(parsed.routing);
       const payload = asRecord(parsed.payload);
       const streaming = asRecord(parsed.streaming);
-      const autoUpdate = asRecord(parsed["auto-update"]);
-
       const newValues: VisualConfigValues = {
         host: typeof parsed.host === "string" ? parsed.host : "",
         port: String(parsed.port ?? ""),
@@ -477,12 +471,6 @@ export function useVisualConfig() {
             ? remoteManagement["secret-key"]
             : "",
         rmDisableControlPanel: Boolean(remoteManagement?.["disable-control-panel"]),
-        rmPanelRepo:
-          typeof remoteManagement?.["panel-github-repository"] === "string"
-            ? remoteManagement["panel-github-repository"]
-            : typeof remoteManagement?.["panel-repo"] === "string"
-              ? remoteManagement["panel-repo"]
-              : "",
 
         authDir: typeof parsed["auth-dir"] === "string" ? parsed["auth-dir"] : "",
         apiKeysText: parseApiKeysText(parsed["api-keys"]),
@@ -493,8 +481,6 @@ export function useVisualConfig() {
         loggingToFile: Boolean(parsed["logging-to-file"]),
         logsMaxTotalSizeMb: String(parsed["logs-max-total-size-mb"] ?? ""),
         usageStatisticsEnabled: Boolean(parsed["usage-statistics-enabled"]),
-        autoUpdateEnabled: Boolean(autoUpdate?.enabled ?? true),
-        autoUpdateChannel: normalizeAutoUpdateChannel(autoUpdate?.channel),
 
         proxyUrl: typeof parsed["proxy-url"] === "string" ? parsed["proxy-url"] : "",
         preferIPv4: Boolean(parsed["prefer-ipv4"]),
@@ -562,14 +548,13 @@ export function useVisualConfig() {
           hasOwn(parsed, "remote-management") ||
           values.rmAllowRemote ||
           values.rmSecretKey.trim() ||
-          values.rmDisableControlPanel ||
-          values.rmPanelRepo.trim()
+          values.rmDisableControlPanel
         ) {
           const rm = ensureRecord(parsed, "remote-management");
           setBoolean(rm, "allow-remote", values.rmAllowRemote);
           setString(rm, "secret-key", values.rmSecretKey);
           setBoolean(rm, "disable-control-panel", values.rmDisableControlPanel);
-          setString(rm, "panel-github-repository", values.rmPanelRepo);
+          if (hasOwn(rm, "panel-github-repository")) delete rm["panel-github-repository"];
           if (hasOwn(rm, "panel-repo")) delete rm["panel-repo"];
           deleteIfEmpty(parsed, "remote-management");
         }
@@ -602,20 +587,6 @@ export function useVisualConfig() {
         setBoolean(parsed, "logging-to-file", values.loggingToFile);
         setIntFromString(parsed, "logs-max-total-size-mb", values.logsMaxTotalSizeMb);
         setBoolean(parsed, "usage-statistics-enabled", values.usageStatisticsEnabled);
-
-        if (
-          hasOwn(parsed, "auto-update") ||
-          !values.autoUpdateEnabled ||
-          values.autoUpdateChannel !== "main"
-        ) {
-          const autoUpdate = ensureRecord(parsed, "auto-update");
-          autoUpdate.enabled = values.autoUpdateEnabled;
-          autoUpdate.channel = values.autoUpdateChannel;
-          if (hasOwn(autoUpdate, "docker-image")) {
-            delete autoUpdate["docker-image"];
-          }
-          deleteIfEmpty(parsed, "auto-update");
-        }
 
         setString(parsed, "proxy-url", values.proxyUrl);
         setBoolean(parsed, "prefer-ipv4", values.preferIPv4);

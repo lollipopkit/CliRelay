@@ -19,9 +19,7 @@ import (
 )
 
 const (
-	DefaultPprofAddr             = "127.0.0.1:8316"
-	DefaultAutoUpdateChannel     = "main"
-	DefaultAutoUpdateRepository  = "https://github.com/kittors/CliRelay"
+	DefaultPprofAddr = "127.0.0.1:8316"
 
 	// EnvAuthPath overrides auth-dir with the path visible inside the running container/process.
 	EnvAuthPath = "AUTH_PATH"
@@ -53,9 +51,6 @@ type Config struct {
 
 	// RemoteManagement nests management-related options under 'remote-management'.
 	RemoteManagement RemoteManagement `yaml:"remote-management" json:"-"`
-
-	// AutoUpdate controls automatic update checks.
-	AutoUpdate AutoUpdateConfig `yaml:"auto-update" json:"auto-update"`
 
 	// OAuthClients stores optional OAuth client credentials used by provider login flows.
 	// When empty, the runtime may fall back to environment variables (see oauth_clients.go).
@@ -302,16 +297,6 @@ type RemoteManagement struct {
 	SecretKey string `yaml:"secret-key"`
 	// DisableControlPanel skips serving and syncing the bundled management UI when true.
 	DisableControlPanel bool `yaml:"disable-control-panel"`
-}
-
-// AutoUpdateConfig holds docker-first update check settings.
-type AutoUpdateConfig struct {
-	// Enabled controls whether the management UI should automatically check for updates.
-	Enabled bool `yaml:"enabled" json:"enabled"`
-	// Channel can be auto, main, or dev. Auto infers from the running build metadata.
-	Channel string `yaml:"channel,omitempty" json:"channel,omitempty"`
-	// Repository is the GitHub repository used for backend update checks and release notes.
-	Repository string `yaml:"repository,omitempty" json:"repository,omitempty"`
 }
 
 // QuotaExceeded defines the behavior when API quota limits are exceeded.
@@ -781,9 +766,6 @@ func LoadConfigOptional(configFile string, optional bool) (*Config, error) {
 	cfg.Pprof.Enable = false
 	cfg.Pprof.Addr = DefaultPprofAddr
 	cfg.AmpCode.RestrictManagementToLocalhost = false // Default to false: API key auth is sufficient
-	cfg.AutoUpdate.Enabled = true
-	cfg.AutoUpdate.Channel = DefaultAutoUpdateChannel
-	cfg.AutoUpdate.Repository = DefaultAutoUpdateRepository
 	if err = yaml.Unmarshal(data, &cfg); err != nil {
 		if optional {
 			// In cloud deploy mode, if YAML parsing fails, return empty config instead of error.
@@ -822,8 +804,6 @@ func LoadConfigOptional(configFile string, optional bool) (*Config, error) {
 		// Preserve YAML comments and ordering; update only the nested key.
 		_ = SaveConfigPreserveCommentsUpdateNestedScalar(configFile, []string{"remote-management", "secret-key"}, hashed)
 	}
-
-	cfg.SanitizeAutoUpdate()
 
 	cfg.Pprof.Addr = strings.TrimSpace(cfg.Pprof.Addr)
 	if cfg.Pprof.Addr == "" {
@@ -972,26 +952,6 @@ func payloadRawString(value any) ([]byte, bool) {
 		return typed, true
 	default:
 		return nil, false
-	}
-}
-
-// SanitizeAutoUpdate normalizes update settings while preserving an explicit disabled flag.
-func (cfg *Config) SanitizeAutoUpdate() {
-	if cfg == nil {
-		return
-	}
-	channel := strings.ToLower(strings.TrimSpace(cfg.AutoUpdate.Channel))
-	switch channel {
-	case "":
-		cfg.AutoUpdate.Channel = DefaultAutoUpdateChannel
-	case "main", "dev", "auto":
-		cfg.AutoUpdate.Channel = channel
-	default:
-		cfg.AutoUpdate.Channel = DefaultAutoUpdateChannel
-	}
-	cfg.AutoUpdate.Repository = strings.TrimSpace(cfg.AutoUpdate.Repository)
-	if cfg.AutoUpdate.Repository == "" {
-		cfg.AutoUpdate.Repository = DefaultAutoUpdateRepository
 	}
 }
 

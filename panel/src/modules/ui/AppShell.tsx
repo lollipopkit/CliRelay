@@ -189,7 +189,7 @@ function ShellSidebar({
         ].join(" ")}
       >
         <div className="flex h-[72px] items-center gap-3 px-5 pt-5 text-slate-900 transition-colors duration-200 ease-out dark:text-white whitespace-nowrap">
-          <span className="grid h-9 w-9 place-items-center rounded-[14px] bg-blue-600 text-white shadow-[0_10px_20px_rgba(37,99,235,0.22)]">
+          <span className="grid h-9 w-9 place-items-center rounded-[14px] bg-blue-600 text-white shadow-[0_10px_20px_rgb(var(--primary-color-rgb)_/_0.22)]">
             <LayoutDashboard size={18} />
           </span>
           <span className="leading-tight">
@@ -211,7 +211,7 @@ function ShellSidebar({
                 onClick={() => handleNavClick(item.to)}
                 className={
                   active
-                    ? "flex min-w-0 items-center gap-3 rounded-[14px] bg-gradient-to-r from-blue-600 to-blue-500 px-3.5 py-2.5 text-[13px] font-semibold text-white shadow-[0_12px_24px_rgba(37,99,235,0.22)] transition-colors duration-200 ease-out whitespace-nowrap"
+                    ? "flex min-w-0 items-center gap-3 rounded-[14px] bg-gradient-to-r from-blue-600 to-blue-500 px-3.5 py-2.5 text-[13px] font-semibold text-white shadow-[0_12px_24px_rgb(var(--primary-color-rgb)_/_0.22)] transition-colors duration-200 ease-out whitespace-nowrap"
                     : "flex min-w-0 items-center gap-3 rounded-[14px] px-3.5 py-2.5 text-[13px] font-medium text-slate-700 transition-colors duration-200 ease-out hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white whitespace-nowrap"
                 }
               >
@@ -226,7 +226,7 @@ function ShellSidebar({
         </nav>
         <div className="space-y-3 px-3 pb-4">
           <div className="flex items-center gap-3 rounded-[18px] bg-slate-50/80 p-3 dark:bg-white/[0.04]">
-            <div className="grid h-10 w-10 place-items-center rounded-[14px] bg-gradient-to-br from-blue-600 to-sky-500 text-white shadow-[0_10px_22px_rgba(37,99,235,0.2)]">
+            <div className="grid h-10 w-10 place-items-center rounded-[14px] bg-gradient-to-br from-blue-600 to-sky-500 text-white shadow-[0_10px_22px_rgb(var(--primary-color-rgb)_/_0.2)]">
               <ShieldCheck size={18} />
             </div>
             <div className="min-w-0 flex-1">

@@ -49,12 +49,6 @@ remote-management:
   secret-key: ""
   # Disable the bundled management control panel asset download and HTTP route when true.
   disable-control-panel: false
-# Docker-first automatic update checks.
-auto-update:
-  enabled: true
-  # main is the default stable update channel; use dev to follow dev images.
-  channel: main
-  repository: https://github.com/kittors/CliRelay
 # Authentication directory (supports ~ for home directory).
 # In Docker/cloud deployments, AUTH_PATH overrides this value at runtime.
 auth-dir: "~/.cli-proxy-api"

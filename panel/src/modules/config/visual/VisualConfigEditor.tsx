@@ -185,14 +185,6 @@ export function VisualConfigEditor({
                 disabled={disabled}
               />
             </Field>
-            <Field label="panel-github-repository" hint={t("visual_config.panel_url")}>
-              <TextInput
-                value={values.rmPanelRepo}
-                onChange={(e) => update({ rmPanelRepo: e.currentTarget.value })}
-                placeholder="owner/repo"
-                disabled={disabled}
-              />
-            </Field>
           </div>
         </div>
       </Card>
@@ -256,29 +248,6 @@ export function VisualConfigEditor({
               onCheckedChange={(next) => update({ usageStatisticsEnabled: next })}
               disabled={disabled}
             />
-            <ToggleSwitch
-              label={t("config_page.auto_update")}
-              description={t("config_page.auto_update_desc")}
-              checked={values.autoUpdateEnabled}
-              onCheckedChange={(next) => update({ autoUpdateEnabled: next })}
-              disabled={disabled}
-            />
-            <Field
-              label={t("config_page.auto_update_channel")}
-              hint={t("config_page.auto_update_channel_desc")}
-            >
-              <Select
-                aria-label={t("config_page.auto_update_channel")}
-                value={values.autoUpdateChannel}
-                onChange={(value) =>
-                  update({ autoUpdateChannel: value === "dev" ? "dev" : "main" })
-                }
-                options={[
-                  { value: "main", label: t("config_page.auto_update_channel_main") },
-                  { value: "dev", label: t("config_page.auto_update_channel_dev") },
-                ]}
-              />
-            </Field>
           </div>
         </Card>
 

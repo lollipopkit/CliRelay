@@ -77,7 +77,6 @@ export type VisualConfigValues = {
   rmAllowRemote: boolean;
   rmSecretKey: string;
   rmDisableControlPanel: boolean;
-  rmPanelRepo: string;
 
   authDir: string;
   apiKeysText: string;
@@ -88,8 +87,6 @@ export type VisualConfigValues = {
   loggingToFile: boolean;
   logsMaxTotalSizeMb: string;
   usageStatisticsEnabled: boolean;
-  autoUpdateEnabled: boolean;
-  autoUpdateChannel: "main" | "dev";
 
   proxyUrl: string;
   preferIPv4: boolean;
@@ -133,7 +130,6 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
   rmAllowRemote: false,
   rmSecretKey: "",
   rmDisableControlPanel: false,
-  rmPanelRepo: "",
   authDir: "",
   apiKeysText: "",
   corsAllowOriginsText: "",
@@ -142,8 +138,6 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
   loggingToFile: false,
   logsMaxTotalSizeMb: "",
   usageStatisticsEnabled: false,
-  autoUpdateEnabled: true,
-  autoUpdateChannel: "main",
   proxyUrl: "",
   preferIPv4: false,
   forceModelPrefix: false,

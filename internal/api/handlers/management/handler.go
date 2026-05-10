@@ -174,6 +174,10 @@ func (h *Handler) SetPostAuthHook(hook coreauth.PostAuthHook) {
 	h.postAuthHook = hook
 }
 
+func (h *Handler) currentFrontendState() (string, string) {
+	return buildinfo.FrontendVersion, buildinfo.FrontendCommit
+}
+
 // Middleware enforces access control for management endpoints.
 // All requests (local and remote) require a valid management key.
 // Additionally, remote access requires allow-remote-management=true.

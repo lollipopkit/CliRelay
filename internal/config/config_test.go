@@ -77,60 +77,6 @@ func TestLoadConfigAllowsAuthPathEnvOverride(t *testing.T) {
 	}
 }
 
-func TestLoadConfigDefaultsAutoUpdateEnabled(t *testing.T) {
-	t.Parallel()
-
-	configPath := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(configPath, []byte("port: 8317\n"), 0o600); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
-
-	cfg, err := LoadConfig(configPath)
-	if err != nil {
-		t.Fatalf("LoadConfig returned error: %v", err)
-	}
-
-	if !cfg.AutoUpdate.Enabled {
-		t.Fatalf("AutoUpdate.Enabled = false, want true by default")
-	}
-	if cfg.AutoUpdate.Channel != "main" {
-		t.Fatalf("AutoUpdate.Channel = %q, want main", cfg.AutoUpdate.Channel)
-	}
-	if cfg.AutoUpdate.Repository != DefaultAutoUpdateRepository {
-		t.Fatalf("AutoUpdate.Repository = %q, want %q", cfg.AutoUpdate.Repository, DefaultAutoUpdateRepository)
-	}
-}
-
-func TestLoadConfigReadsDisabledAutoUpdate(t *testing.T) {
-	t.Parallel()
-
-	configPath := filepath.Join(t.TempDir(), "config.yaml")
-	content := []byte(`port: 8317
-auto-update:
-  enabled: false
-  channel: dev
-  repository: kittors/CliRelay
-`)
-	if err := os.WriteFile(configPath, content, 0o600); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
-
-	cfg, err := LoadConfig(configPath)
-	if err != nil {
-		t.Fatalf("LoadConfig returned error: %v", err)
-	}
-
-	if cfg.AutoUpdate.Enabled {
-		t.Fatalf("AutoUpdate.Enabled = true, want false from config")
-	}
-	if cfg.AutoUpdate.Channel != "dev" {
-		t.Fatalf("AutoUpdate.Channel = %q, want dev", cfg.AutoUpdate.Channel)
-	}
-	if cfg.AutoUpdate.Repository != "kittors/CliRelay" {
-		t.Fatalf("AutoUpdate.Repository = %q, want kittors/CliRelay", cfg.AutoUpdate.Repository)
-	}
-}
-
 func TestSaveConfigPreserveCommentsOmitsDisableControlPanelWhenDefaultFalse(t *testing.T) {
 	t.Parallel()
 

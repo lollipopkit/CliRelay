@@ -302,12 +302,6 @@ export function useVisualConfig() {
             ? remoteManagement["secret-key"]
             : "",
         rmDisableControlPanel: Boolean(remoteManagement?.["disable-control-panel"]),
-        rmPanelRepo:
-          typeof remoteManagement?.["panel-github-repository"] === "string"
-            ? remoteManagement["panel-github-repository"]
-            : typeof remoteManagement?.["panel-repo"] === "string"
-              ? remoteManagement["panel-repo"]
-              : "",
 
         authDir: typeof parsed["auth-dir"] === "string" ? parsed["auth-dir"] : "",
         apiKeysText: parseApiKeysText(parsed["api-keys"]),
@@ -378,8 +372,7 @@ export function useVisualConfig() {
           docHas(doc, ["remote-management"]) ||
           values.rmAllowRemote ||
           values.rmSecretKey.trim() ||
-          values.rmDisableControlPanel ||
-          values.rmPanelRepo.trim()
+          values.rmDisableControlPanel
         ) {
           ensureMapInDoc(doc, ["remote-management"]);
           setBooleanInDoc(doc, ["remote-management", "allow-remote"], values.rmAllowRemote);
@@ -389,9 +382,11 @@ export function useVisualConfig() {
             ["remote-management", "disable-control-panel"],
             values.rmDisableControlPanel,
           );
-          setStringInDoc(doc, ["remote-management", "panel-github-repository"], values.rmPanelRepo);
           if (docHas(doc, ["remote-management", "panel-repo"])) {
             doc.deleteIn(["remote-management", "panel-repo"]);
+          }
+          if (docHas(doc, ["remote-management", "panel-github-repository"])) {
+            doc.deleteIn(["remote-management", "panel-github-repository"]);
           }
           deleteIfMapEmpty(doc, ["remote-management"]);
         }

@@ -7,10 +7,17 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
 	"github.com/router-for-me/CLIProxyAPI/v6/panel"
 )
 
 const PanelMetadataFileName = "panel-meta.json"
+
+// managementAssetName is the legacy single-file panel asset name.
+const managementAssetName = "management.html"
+
+// embeddedPanelMetadataPath is the metadata path inside embedded assets.
+const embeddedPanelMetadataPath = "dist/panel-meta.json"
 
 // PanelMetadata describes the management panel currently present on disk.
 // It lets update checks compare the actual served UI instead of stale binary build info.
@@ -21,8 +28,6 @@ type PanelMetadata struct {
 	Repository string `json:"repository"`
 	BuildDate  string `json:"build_date"`
 }
-
-const embeddedPanelMetadataPath = "dist/panel-meta.json"
 
 // ResolvePanelDir returns the directory containing the SPA panel (manage.html + assets/).
 func ResolvePanelDir(configFilePath string) string {
@@ -48,6 +53,49 @@ func ResolvePanelDir(configFilePath string) string {
 	return ""
 }
 
+// StaticDir resolves the directory that stores management assets on disk.
+func StaticDir(configFilePath string) string {
+	if override := strings.TrimSpace(os.Getenv("MANAGEMENT_STATIC_PATH")); override != "" {
+		cleaned := filepath.Clean(override)
+		if strings.EqualFold(filepath.Base(cleaned), managementAssetName) {
+			return filepath.Dir(cleaned)
+		}
+		return cleaned
+	}
+
+	if writable := util.WritablePath(); writable != "" {
+		return filepath.Join(writable, "static")
+	}
+
+	configFilePath = strings.TrimSpace(configFilePath)
+	if configFilePath == "" {
+		return ""
+	}
+
+	base := filepath.Dir(configFilePath)
+	if fileInfo, err := os.Stat(configFilePath); err == nil && fileInfo.IsDir() {
+		base = configFilePath
+	}
+	return filepath.Join(base, "static")
+}
+
+// FilePath resolves the absolute path to the management control panel asset.
+func FilePath(configFilePath string) string {
+	if override := strings.TrimSpace(os.Getenv("MANAGEMENT_STATIC_PATH")); override != "" {
+		cleaned := filepath.Clean(override)
+		if strings.EqualFold(filepath.Base(cleaned), managementAssetName) {
+			return cleaned
+		}
+		return filepath.Join(cleaned, managementAssetName)
+	}
+
+	dir := StaticDir(configFilePath)
+	if dir == "" {
+		return ""
+	}
+	return filepath.Join(dir, managementAssetName)
+}
+
 func ReadPanelMetadata(panelDir string) (PanelMetadata, bool) {
 	panelDir = strings.TrimSpace(panelDir)
 	if panelDir == "" {
@@ -60,7 +108,7 @@ func ReadPanelMetadata(panelDir string) (PanelMetadata, bool) {
 	}
 
 	var meta PanelMetadata
-	if err := json.Unmarshal(data, &meta); err != nil {
+	if err = json.Unmarshal(data, &meta); err != nil {
 		return PanelMetadata{}, false
 	}
 	meta.Version = strings.TrimSpace(meta.Version)

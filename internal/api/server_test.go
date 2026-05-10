@@ -597,6 +597,60 @@ func TestCORSMiddlewareUsesUpdatedCORSAllowOrigins(t *testing.T) {
 	}
 }
 
+func TestCORSMiddlewareAllowsLocalhostOriginWhenManagementDevModeEnabled(t *testing.T) {
+	t.Setenv("MANAGEMENT_DEV_URL", "http://127.0.0.1:5173")
+
+	server := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodOptions, "/v0/management/config", nil)
+	req.Header.Set("Origin", "http://localhost:5173")
+
+	rr := httptest.NewRecorder()
+	server.engine.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d; body=%s", rr.Code, http.StatusNoContent, rr.Body.String())
+	}
+	if got := rr.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:5173" {
+		t.Fatalf("Access-Control-Allow-Origin = %q", got)
+	}
+}
+
+func TestCORSMiddlewareAllowsLocalhostOriginWhenManagementDevModeDisabled(t *testing.T) {
+	server := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodOptions, "/v0/management/config", nil)
+	req.Header.Set("Origin", "http://localhost:5173")
+
+	rr := httptest.NewRecorder()
+	server.engine.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d; body=%s", rr.Code, http.StatusNoContent, rr.Body.String())
+	}
+	if got := rr.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:5173" {
+		t.Fatalf("Access-Control-Allow-Origin = %q", got)
+	}
+}
+
+func TestCORSMiddlewareRejectsNonLocalhostOriginWhenManagementDevModeEnabled(t *testing.T) {
+	t.Setenv("MANAGEMENT_DEV_URL", "http://127.0.0.1:5173")
+
+	server := newTestServerWithConfig(t, func(cfg *proxyconfig.Config) {
+		cfg.CORSAllowOrigins = []string{"https://example.com"}
+	})
+
+	req := httptest.NewRequest(http.MethodOptions, "/v0/management/config", nil)
+	req.Header.Set("Origin", "https://evil.example")
+
+	rr := httptest.NewRecorder()
+	server.engine.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d; body=%s", rr.Code, http.StatusForbidden, rr.Body.String())
+	}
+}
+
 func TestManagementRemoteRestrictionIgnoresForgedForwardedFor(t *testing.T) {
 	server := newTestServerWithConfig(t, func(cfg *proxyconfig.Config) {
 		cfg.RemoteManagement.SecretKey = "test-secret"

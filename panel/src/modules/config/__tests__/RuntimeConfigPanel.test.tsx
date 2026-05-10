@@ -11,8 +11,6 @@ const mocks = vi.hoisted(() => ({
   getLogsMaxTotalSizeMb: vi.fn(),
   getForceModelPrefix: vi.fn(),
   getRoutingStrategy: vi.fn(),
-  getAutoUpdateEnabled: vi.fn(),
-  getAutoUpdateChannel: vi.fn(),
   updateProxyUrl: vi.fn(),
   clearProxyUrl: vi.fn(),
   updateRequestRetry: vi.fn(),
@@ -26,8 +24,6 @@ const mocks = vi.hoisted(() => ({
   updateSwitchProject: vi.fn(),
   updateSwitchPreviewModel: vi.fn(),
   updateForceModelPrefix: vi.fn(),
-  updateAutoUpdateEnabled: vi.fn(),
-  updateAutoUpdateChannel: vi.fn(),
 }));
 
 vi.mock("@/lib/http/apis/config", () => ({
@@ -36,8 +32,6 @@ vi.mock("@/lib/http/apis/config", () => ({
     getLogsMaxTotalSizeMb: mocks.getLogsMaxTotalSizeMb,
     getForceModelPrefix: mocks.getForceModelPrefix,
     getRoutingStrategy: mocks.getRoutingStrategy,
-    getAutoUpdateEnabled: mocks.getAutoUpdateEnabled,
-    getAutoUpdateChannel: mocks.getAutoUpdateChannel,
     updateProxyUrl: mocks.updateProxyUrl,
     clearProxyUrl: mocks.clearProxyUrl,
     updateRequestRetry: mocks.updateRequestRetry,
@@ -51,8 +45,6 @@ vi.mock("@/lib/http/apis/config", () => ({
     updateSwitchProject: mocks.updateSwitchProject,
     updateSwitchPreviewModel: mocks.updateSwitchPreviewModel,
     updateForceModelPrefix: mocks.updateForceModelPrefix,
-    updateAutoUpdateEnabled: mocks.updateAutoUpdateEnabled,
-    updateAutoUpdateChannel: mocks.updateAutoUpdateChannel,
   },
 }));
 
@@ -81,15 +73,11 @@ describe("RuntimeConfigPanel", () => {
     mocks.getLogsMaxTotalSizeMb.mockResolvedValue(128);
     mocks.getForceModelPrefix.mockResolvedValue(false);
     mocks.getRoutingStrategy.mockResolvedValue("round-robin");
-    mocks.getAutoUpdateEnabled.mockResolvedValue(true);
-    mocks.getAutoUpdateChannel.mockResolvedValue("main");
     mocks.updateProxyUrl.mockResolvedValue({});
     mocks.clearProxyUrl.mockResolvedValue({});
     mocks.updateRequestRetry.mockResolvedValue({});
     mocks.updateLogsMaxTotalSizeMb.mockResolvedValue({});
     mocks.updateRoutingStrategy.mockResolvedValue({});
-    mocks.updateAutoUpdateEnabled.mockResolvedValue({});
-    mocks.updateAutoUpdateChannel.mockResolvedValue({});
   });
 
   test("saves modified runtime text fields and reloads config", async () => {
@@ -133,27 +121,4 @@ describe("RuntimeConfigPanel", () => {
     });
   });
 
-  test("toggles automatic update checks", async () => {
-    renderPanel();
-
-    const toggle = await screen.findByRole("switch", { name: /automatic update/i });
-    await userEvent.click(toggle);
-
-    await waitFor(() => {
-      expect(mocks.updateAutoUpdateEnabled).toHaveBeenCalledWith(false);
-    });
-  });
-
-  test("selects the automatic update source branch", async () => {
-    renderPanel();
-
-    const select = await screen.findByRole("combobox", { name: /update source branch/i });
-    await userEvent.click(select);
-    expect(screen.queryByRole("option", { name: /auto-detect/i })).not.toBeInTheDocument();
-    await userEvent.click(await screen.findByRole("option", { name: /development/i }));
-
-    await waitFor(() => {
-      expect(mocks.updateAutoUpdateChannel).toHaveBeenCalledWith("dev");
-    });
-  });
 });
