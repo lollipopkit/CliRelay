@@ -95,7 +95,6 @@ func initAPIKeysTable(db *sql.DB) {
 		log.Errorf("usage: create api_keys table: %v", err)
 	}
 	migrateAPIKeyColumns(db)
-	backfillAPIKeyNames(db)
 }
 
 func migrateAPIKeyColumns(db *sql.DB) {
@@ -112,67 +111,6 @@ func migrateAPIKeyColumns(db *sql.DB) {
 			}
 		}
 	}
-}
-
-func defaultAPIKeyName(index int) string {
-	if index < 0 {
-		index = 0
-	}
-	return fmt.Sprintf("api-key-%d", index+1)
-}
-
-func backfillAPIKeyNames(db *sql.DB) {
-	if db == nil {
-		return
-	}
-
-	rows, err := db.Query(`SELECT key FROM api_keys WHERE trim(coalesce(name, '')) = '' ORDER BY created_at ASC, key ASC`)
-	if err != nil {
-		log.Warnf("usage: query unnamed api_keys: %v", err)
-		return
-	}
-	defer rows.Close()
-
-	var keys []string
-	for rows.Next() {
-		var key string
-		if err := rows.Scan(&key); err == nil && strings.TrimSpace(key) != "" {
-			keys = append(keys, key)
-		}
-	}
-	if len(keys) == 0 {
-		return
-	}
-
-	tx, err := db.Begin()
-	if err != nil {
-		log.Warnf("usage: begin api_keys name backfill: %v", err)
-		return
-	}
-
-	stmt, err := tx.Prepare(`UPDATE api_keys SET name = ?, updated_at = ? WHERE key = ? AND trim(coalesce(name, '')) = ''`)
-	if err != nil {
-		_ = tx.Rollback()
-		log.Warnf("usage: prepare api_keys name backfill: %v", err)
-		return
-	}
-	defer stmt.Close()
-
-	now := time.Now().UTC().Format(time.RFC3339)
-	for idx, key := range keys {
-		if _, err := stmt.Exec(defaultAPIKeyName(idx), now, key); err != nil {
-			_ = tx.Rollback()
-			log.Warnf("usage: update api_keys name backfill for %s: %v", key, err)
-			return
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		log.Warnf("usage: commit api_keys name backfill: %v", err)
-		return
-	}
-
-	log.Infof("usage: backfilled names for %d api_keys", len(keys))
 }
 
 // MigrateAPIKeysFromConfig moves API key entries from YAML config into SQLite.
@@ -218,9 +156,6 @@ func MigrateAPIKeysFromConfig(cfg *config.Config, configFilePath string) int {
 		row := APIKeyRowFromConfig(entry)
 		row.Key = trimmed
 		row.Name = strings.TrimSpace(row.Name)
-		if row.Name == "" {
-			row.Name = defaultAPIKeyName(len(rows))
-		}
 		if row.CreatedAt == "" {
 			row.CreatedAt = time.Now().UTC().Format(time.RFC3339)
 		}
@@ -240,7 +175,7 @@ func MigrateAPIKeysFromConfig(cfg *config.Config, configFilePath string) int {
 		seen[trimmed] = struct{}{}
 		row := APIKeyRow{
 			Key:       trimmed,
-			Name:      defaultAPIKeyName(len(rows)),
+			Name:      "",
 			CreatedAt: time.Now().UTC().Format(time.RFC3339),
 			UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 		}

@@ -2,6 +2,7 @@ package usage
 
 import (
 	"database/sql"
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	"os"
 	"testing"
 	"time"
@@ -118,33 +119,33 @@ func TestAPIKeyBlankNameGetsDerived(t *testing.T) {
 	}
 }
 
-func TestAPIKeyNameBackfill(t *testing.T) {
+func TestAPIKeyNameBackfillDoesNotRename(t *testing.T) {
 	cleanup := setupTestDB(t)
 	defer cleanup()
 
-	usageDBMu.Lock()
-	db := usageDB
-	usageDBMu.Unlock()
-	if db == nil {
-		t.Fatal("expected test db")
+	// config 里只给出空 key 名，迁移应保留空名而不是生成 api-key-1.
+	cfg := &config.Config{
+		SDKConfig: config.SDKConfig{
+			APIKeyEntries: []config.APIKeyEntry{
+				{
+					Key:  "sk-user-aaa",
+					Name: "",
+				},
+			},
+		},
 	}
 
-	if _, err := db.Exec(`INSERT INTO api_keys (key, name, created_at, updated_at) VALUES (?, '', ?, ?)`,
-		"sk-user-d9c1c123dsx89107612398sdedb20b5",
-		time.Now().UTC().Format(time.RFC3339),
-		time.Now().UTC().Format(time.RFC3339),
-	); err != nil {
-		t.Fatalf("insert unnamed key: %v", err)
+	count := MigrateAPIKeysFromConfig(cfg, "")
+	if count != 1 {
+		t.Fatalf("migrated count = %d, want 1", count)
 	}
 
-	backfillAPIKeyNames(db)
-
-	got := GetAPIKey("sk-user-d9c1c123dsx89107612398sdedb20b5")
+	got := GetAPIKey("sk-user-aaa")
 	if got == nil {
 		t.Fatal("expected to find key")
 	}
-	if got.Name != "api-key-1" {
-		t.Errorf("backfilled name = %q, want %q", got.Name, "api-key-1")
+	if got.Name != "" {
+		t.Errorf("migrated name = %q, want empty", got.Name)
 	}
 }
 
