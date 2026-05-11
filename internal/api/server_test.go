@@ -14,7 +14,6 @@ import (
 
 	gin "github.com/gin-gonic/gin"
 	proxyconfig "github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
 	sdkaccess "github.com/router-for-me/CLIProxyAPI/v6/sdk/access"
 	sdkhandlers "github.com/router-for-me/CLIProxyAPI/v6/sdk/api/handlers"
 	"github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
@@ -168,43 +167,7 @@ func TestAmpProviderModelRoutes(t *testing.T) {
 	}
 }
 
-func TestGroupedV1RouteConfigured(t *testing.T) {
-	server := newTestServerWithConfig(t, func(cfg *proxyconfig.Config) {
-		cfg.Routing.PathRoutes = []proxyconfig.RoutingPathRoute{
-			{Path: "/pro", Group: "pro"},
-		}
-		cfg.SanitizeRouting()
-	})
 
-	req := httptest.NewRequest(http.MethodGet, "/pro/v1/models", nil)
-	req.Header.Set("Authorization", "Bearer test-key")
-
-	rr := httptest.NewRecorder()
-	server.engine.ServeHTTP(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d; body=%s", rr.Code, http.StatusOK, rr.Body.String())
-	}
-}
-
-func TestGroupedNestedV1RouteConfigured(t *testing.T) {
-	server := newTestServerWithConfig(t, func(cfg *proxyconfig.Config) {
-		cfg.Routing.PathRoutes = []proxyconfig.RoutingPathRoute{
-			{Path: "/openai/pro", Group: "pro"},
-		}
-		cfg.SanitizeRouting()
-	})
-
-	req := httptest.NewRequest(http.MethodGet, "/openai/pro/v1/models", nil)
-	req.Header.Set("Authorization", "Bearer test-key")
-
-	rr := httptest.NewRecorder()
-	server.engine.ServeHTTP(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d; body=%s", rr.Code, http.StatusOK, rr.Body.String())
-	}
-}
 
 func TestUpdateClientsDisablesRemovedConfigAuths(t *testing.T) {
 	server := newTestServer(t)
@@ -255,123 +218,8 @@ func TestUpdateClientsDisablesRemovedConfigAuths(t *testing.T) {
 	}
 }
 
-func TestGroupedV1RouteForbiddenByAPIKeyGroups(t *testing.T) {
-	server := newTestServerWithConfig(t, func(cfg *proxyconfig.Config) {
-		cfg.SDKConfig.APIKeys = nil
-		cfg.SDKConfig.APIKeyEntries = []proxyconfig.APIKeyEntry{
-			{Key: "test-key", AllowedChannelGroups: []string{"free"}},
-		}
-		cfg.Routing.PathRoutes = []proxyconfig.RoutingPathRoute{
-			{Path: "/pro", Group: "pro"},
-		}
-		cfg.SanitizeRouting()
-		cfg.SanitizeAPIKeyEntries()
-	})
 
-	req := httptest.NewRequest(http.MethodGet, "/pro/v1/models", nil)
-	req.Header.Set("Authorization", "Bearer test-key")
 
-	rr := httptest.NewRecorder()
-	server.engine.ServeHTTP(rr, req)
-
-	if rr.Code != http.StatusForbidden {
-		t.Fatalf("status = %d, want %d; body=%s", rr.Code, http.StatusForbidden, rr.Body.String())
-	}
-	if !strings.Contains(rr.Body.String(), "channel_group_forbidden") {
-		t.Fatalf("expected channel_group_forbidden in body, got %s", rr.Body.String())
-	}
-}
-
-func TestGroupedNestedV1RouteForbiddenByAPIKeyGroups(t *testing.T) {
-	server := newTestServerWithConfig(t, func(cfg *proxyconfig.Config) {
-		cfg.SDKConfig.APIKeys = nil
-		cfg.SDKConfig.APIKeyEntries = []proxyconfig.APIKeyEntry{
-			{Key: "test-key", AllowedChannelGroups: []string{"free"}},
-		}
-		cfg.Routing.PathRoutes = []proxyconfig.RoutingPathRoute{
-			{Path: "/openai/plus", Group: "pro"},
-		}
-		cfg.SanitizeRouting()
-		cfg.SanitizeAPIKeyEntries()
-	})
-
-	req := httptest.NewRequest(http.MethodGet, "/openai/plus/v1/models", nil)
-	req.Header.Set("Authorization", "Bearer test-key")
-
-	rr := httptest.NewRecorder()
-	server.engine.ServeHTTP(rr, req)
-
-	if rr.Code != http.StatusForbidden {
-		t.Fatalf("status = %d, want %d; body=%s", rr.Code, http.StatusForbidden, rr.Body.String())
-	}
-	if !strings.Contains(rr.Body.String(), "channel_group_forbidden") {
-		t.Fatalf("expected channel_group_forbidden in body, got %s", rr.Body.String())
-	}
-}
-
-func TestGroupedNestedResponsesSuccessReturnsOK(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	tmpDir := t.TempDir()
-	authDir := filepath.Join(tmpDir, "auth")
-	if err := os.MkdirAll(authDir, 0o700); err != nil {
-		t.Fatalf("failed to create auth dir: %v", err)
-	}
-
-	cfg := &proxyconfig.Config{
-		SDKConfig: sdkconfig.SDKConfig{
-			APIKeys: []string{"test-key"},
-		},
-		Port:                   0,
-		AuthDir:                authDir,
-		Debug:                  true,
-		LoggingToFile:          false,
-		UsageStatisticsEnabled: false,
-		Routing: proxyconfig.RoutingConfig{
-			PathRoutes: []proxyconfig.RoutingPathRoute{
-				{Path: "/openai/plus", Group: "pro"},
-			},
-		},
-	}
-	cfg.SanitizeRouting()
-
-	authManager := auth.NewManager(nil, nil, nil)
-	executor := &staticResponseExecutor{}
-	authManager.RegisterExecutor(executor)
-
-	authFile := &auth.Auth{
-		ID:       "auth1",
-		Provider: executor.Identifier(),
-		Status:   auth.StatusActive,
-		Prefix:   "pro",
-	}
-	if _, err := authManager.Register(context.Background(), authFile); err != nil {
-		t.Fatalf("register auth: %v", err)
-	}
-
-	registry.GetGlobalRegistry().RegisterClient(authFile.ID, authFile.Provider, []*registry.ModelInfo{{ID: "test-model"}})
-	t.Cleanup(func() {
-		registry.GetGlobalRegistry().UnregisterClient(authFile.ID)
-	})
-
-	accessManager := sdkaccess.NewManager()
-	configPath := filepath.Join(tmpDir, "config.yaml")
-	server := NewServer(cfg, authManager, accessManager, configPath)
-
-	req := httptest.NewRequest(http.MethodPost, "/openai/plus/v1/responses", strings.NewReader(`{"model":"test-model"}`))
-	req.Header.Set("Authorization", "Bearer test-key")
-	req.Header.Set("Content-Type", "application/json")
-
-	rr := httptest.NewRecorder()
-	server.engine.ServeHTTP(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d; body=%s", rr.Code, http.StatusOK, rr.Body.String())
-	}
-	if strings.TrimSpace(rr.Body.String()) != `{"ok":true}` {
-		t.Fatalf("body = %s", rr.Body.String())
-	}
-}
 
 func TestGroupedV1RouteUnknownGroupReturnsNotFound(t *testing.T) {
 	server := newTestServer(t)

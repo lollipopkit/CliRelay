@@ -1401,7 +1401,8 @@
     "expand_sidebar": "Expand Sidebar",
     "collapse_sidebar": "Collapse Sidebar",
     "logout_button": "Logout",
-    "skip_to_content": "Skip to main content"
+    "skip_to_content": "Skip to main content",
+    "nav_backup": "Резервная копия"
   },
   "api_key_permissions_page": {
     "title": "API Key Permissions",
@@ -1989,5 +1990,38 @@
     "channel": "Канал: {{channel}}",
     "current_commit": "Текущий: {{commit}}",
     "latest_commit": "Последний: {{commit}}"
+  },
+  "backup_page": {
+    "title": "Резервное копирование",
+    "subtitle": "Создание и управление резервными копиями для аварийного восстановления.",
+    "backup_list": "Список резервных копий",
+    "create_now": "Создать копию",
+    "refresh": "Обновить",
+    "loading": "Загрузка резервных копий…",
+    "no_backups": "Резервные копии не найдены",
+    "create_first": "Создайте первую резервную копию",
+    "col_name": "Имя",
+    "col_size": "Размер",
+    "col_created": "Создано",
+    "col_source": "Источник",
+    "col_actions": "Действия",
+    "download": "Скачать копию",
+    "restore": "Восстановить из копии",
+    "delete": "Удалить копию",
+    "delete_confirm": "Удалить резервную копию «{{name}}»? Это действие нельзя отменить.",
+    "restore_confirm": "Восстановить из копии «{{name}}»? Текущие данные будут заменены. Сначала будет создана защитная копия.",
+    "upload_restore": "Загрузить и восстановить",
+    "upload_restore_desc": "Загрузите файл .tar.gz для восстановления.",
+    "upload_restore_confirm": "Загрузить и восстановить из этого файла? Текущие данные будут заменены. Сначала будет создана защитная копия.",
+    "upload_success": "Копия загружена и восстановлена. Перезапустите службу.",
+    "upload_failed": "Ошибка загрузки и восстановления",
+    "create_success": "Резервная копия создана",
+    "create_failed": "Не удалось создать резервную копию",
+    "download_failed": "Не удалось скачать копию",
+    "delete_success": "Резервная копия удалена",
+    "delete_failed": "Не удалось удалить копию",
+    "restore_success": "Копия восстановлена. Перезапустите службу.",
+    "restore_failed": "Не удалось восстановить копию",
+    "load_failed": "Не удалось загрузить список копий"
   }
 }

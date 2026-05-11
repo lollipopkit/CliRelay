@@ -32,7 +32,6 @@ type channelGroupItem struct {
 	Channels       []string                    `json:"channels,omitempty"`
 	ChannelDetails []channelGroupChannelDetail `json:"channel-details,omitempty"`
 	AllowedModels  []string                    `json:"allowed-models,omitempty"`
-	PathRoutes     []string                    `json:"path-routes,omitempty"`
 }
 
 func collectChannelDescriptors(cfg *config.Config, auths []*coreauth.Auth) []channelDescriptor {
@@ -91,17 +90,9 @@ func includeAuthInChannelGroups(auth *coreauth.Auth) bool {
 
 func buildChannelGroupItems(cfg *config.Config, auths []*coreauth.Auth) []channelGroupItem {
 	items := collectChannelDescriptors(cfg, auths)
-	knownPaths := make(map[string][]string)
 	routingCfg := currentRoutingConfig(cfg)
 	if known, err := collectKnownChannels(cfg, auths, ""); err == nil {
 		routingCfg = canonicalizeRoutingConfigChannels(routingCfg, known)
-	}
-	for _, route := range routingCfg.PathRoutes {
-		group := internalrouting.NormalizeGroupName(route.Group)
-		if group == "" {
-			continue
-		}
-		knownPaths[group] = append(knownPaths[group], route.Path)
 	}
 
 	groupMap := make(map[string]*channelGroupItem)
@@ -194,7 +185,6 @@ func buildChannelGroupItems(cfg *config.Config, auths []*coreauth.Auth) []channe
 		item.Prefixes = uniqueSortedStrings(item.Prefixes, internalrouting.NormalizeGroupName)
 		item.Channels = uniqueSortedStrings(item.Channels, func(value string) string { return strings.TrimSpace(value) })
 		item.ChannelDetails = uniqueSortedChannelDetails(item.ChannelDetails)
-		item.PathRoutes = uniqueSortedStrings(knownPaths[name], internalrouting.NormalizeNamespacePath)
 		out = append(out, *item)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
@@ -240,22 +230,6 @@ func (h *Handler) GetChannelGroups(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": buildChannelGroupItems(h.cfg, auths)})
 }
 
-func reservedPathRoutePrefixes() []string {
-	return []string{
-		"/v1",
-		"/v1beta",
-		"/v0",
-		"/api",
-		"/manage",
-		"/auth",
-		"/anthropic",
-		"/codex",
-		"/google",
-		"/iflow",
-		"/antigravity",
-	}
-}
-
 func validateRoutingAndAPIKeyRestrictions(cfg *config.Config, auths []*coreauth.Auth) error {
 	if cfg == nil {
 		return nil
@@ -287,27 +261,6 @@ func validateRoutingAndAPIKeyRestrictions(cfg *config.Config, auths []*coreauth.
 		seenGroupNames[name] = struct{}{}
 		if _, exists := knownGroups[name]; !exists {
 			return fmt.Errorf("channel group %q does not match any known channel", group.Name)
-		}
-	}
-
-	seenPaths := make(map[string]struct{}, len(routingCfg.PathRoutes))
-	for _, route := range routingCfg.PathRoutes {
-		path := internalrouting.NormalizeNamespacePath(route.Path)
-		if path == "" {
-			return fmt.Errorf("invalid path route %q", route.Path)
-		}
-		if _, exists := seenPaths[path]; exists {
-			return fmt.Errorf("duplicate path route %q", path)
-		}
-		seenPaths[path] = struct{}{}
-		for _, reserved := range reservedPathRoutePrefixes() {
-			if path == reserved {
-				return fmt.Errorf("path route %q conflicts with reserved internal path", path)
-			}
-		}
-		group := internalrouting.NormalizeGroupName(route.Group)
-		if _, exists := knownGroups[group]; !exists {
-			return fmt.Errorf("path route %q references unknown channel group %q", path, route.Group)
 		}
 	}
 

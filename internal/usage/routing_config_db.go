@@ -34,7 +34,7 @@ func normalizeRoutingConfig(input config.RoutingConfig) config.RoutingConfig {
 }
 
 func routingConfigMeaningful(cfg config.RoutingConfig) bool {
-	return cfg.Strategy != "" || !cfg.IncludeDefaultGroup || len(cfg.ChannelGroups) > 0 || len(cfg.PathRoutes) > 0
+	return cfg.Strategy != "" || !cfg.IncludeDefaultGroup || len(cfg.ChannelGroups) > 0
 }
 
 func ApplyStoredRoutingConfig(cfg *config.Config) bool {

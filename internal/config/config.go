@@ -157,6 +157,8 @@ type Config struct {
 	// Payload defines default and override rules for provider payload parameters.
 	Payload PayloadConfig `yaml:"payload" json:"payload"`
 
+	Backup BackupConfig `yaml:"backup" json:"backup"`
+
 	legacyMigrationPending bool `yaml:"-" json:"-"`
 }
 
@@ -320,9 +322,6 @@ type RoutingConfig struct {
 
 	// ChannelGroups defines named channel groups used by path routing and API key permissions.
 	ChannelGroups []RoutingChannelGroup `yaml:"channel-groups,omitempty" json:"channel-groups,omitempty"`
-
-	// PathRoutes maps URL path namespaces to channel groups.
-	PathRoutes []RoutingPathRoute `yaml:"path-routes,omitempty" json:"path-routes,omitempty"`
 }
 
 // OAuthModelAlias defines a model ID alias for a specific channel.

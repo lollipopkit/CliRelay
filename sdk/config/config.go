@@ -14,7 +14,6 @@ type APIKeyEntry = internalconfig.APIKeyEntry
 type StreamingConfig = internalconfig.StreamingConfig
 type RoutingConfig = internalconfig.RoutingConfig
 type RoutingChannelGroup = internalconfig.RoutingChannelGroup
-type RoutingPathRoute = internalconfig.RoutingPathRoute
 type ChannelGroupMatch = internalconfig.ChannelGroupMatch
 type TLSConfig = internalconfig.TLSConfig
 type RemoteManagement = internalconfig.RemoteManagement

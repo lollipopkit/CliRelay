@@ -1822,7 +1822,8 @@
     "upgrade_title": "升级到专业版",
     "upgrade_description": "获得更高吞吐、更细粒度监控与优先技术支持。",
     "upgrade_action": "立即升级",
-    "sidebar_account_role": "超级管理员"
+    "sidebar_account_role": "超级管理员",
+    "nav_backup": "备份"
   },
   "proxies": {
     "title": "代理管理",
@@ -3471,5 +3472,38 @@
   },
   "quota": {
     "no_matching": "暂无匹配的认证文件"
+  },
+  "backup_page": {
+    "title": "备份",
+    "subtitle": "创建和管理数据备份，用于灾难恢复。",
+    "backup_list": "备份列表",
+    "create_now": "创建备份",
+    "refresh": "刷新",
+    "loading": "正在加载备份…",
+    "no_backups": "暂无备份",
+    "create_first": "创建第一个备份",
+    "col_name": "名称",
+    "col_size": "大小",
+    "col_created": "创建时间",
+    "col_source": "来源",
+    "col_actions": "操作",
+    "download": "下载备份",
+    "restore": "从备份恢复",
+    "delete": "删除备份",
+    "delete_confirm": "确认删除备份「{{name}}」？此操作不可撤销。",
+    "restore_confirm": "确认从备份「{{name}}」恢复？这将替换当前数据，恢复前会自动创建安全备份。",
+    "upload_restore": "上传并恢复",
+    "upload_restore_desc": "上传 .tar.gz 备份文件进行恢复。",
+    "upload_restore_confirm": "确认上传并从此备份文件恢复？这将替换当前数据，恢复前会自动创建安全备份。",
+    "upload_success": "备份已上传并恢复，请重启服务。",
+    "upload_failed": "上传并恢复失败",
+    "create_success": "备份创建成功",
+    "create_failed": "备份创建失败",
+    "download_failed": "下载备份失败",
+    "delete_success": "备份已删除",
+    "delete_failed": "删除备份失败",
+    "restore_success": "备份已恢复，请重启服务。",
+    "restore_failed": "恢复备份失败",
+    "load_failed": "加载备份失败"
   }
 }

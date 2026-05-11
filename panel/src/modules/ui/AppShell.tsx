@@ -14,6 +14,7 @@ import {
   Bot,
   Cpu,
   Fingerprint,
+  HardDrive,
   Image,
   Layers,
   LayoutDashboard,
@@ -66,6 +67,7 @@ const NAV_ITEMS = [
   { to: "/proxies", i18nKey: "shell.nav_proxies", icon: Network },
   { to: "/config", i18nKey: "shell.nav_config", icon: Settings },
   { to: "/system", i18nKey: "shell.nav_system", icon: Info },
+  { to: "/backup", i18nKey: "shell.nav_backup", icon: HardDrive },
   { to: "/logs", i18nKey: "shell.nav_logs", icon: FileText },
 ] as const;
 

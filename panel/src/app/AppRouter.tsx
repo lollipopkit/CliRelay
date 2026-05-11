@@ -34,6 +34,9 @@ const LogsPage = lazy(() =>
 const SystemPage = lazy(() =>
   import("@/modules/system/SystemPage").then((m) => ({ default: m.SystemPage })),
 );
+const BackupPage = lazy(() =>
+  import("@/modules/system/BackupPage").then((m) => ({ default: m.BackupPage })),
+);
 const ApiKeysPage = lazy(() =>
   import("@/modules/api-keys/ApiKeysPage").then((m) => ({ default: m.ApiKeysPage })),
 );
@@ -105,6 +108,7 @@ export function AppRouter() {
                             <Route path="/config" element={<ConfigPage />} />
                             <Route path="/logs" element={<LogsPage />} />
                             <Route path="/system" element={<SystemPage />} />
+                            <Route path="/backup" element={<BackupPage />} />
                             <Route path="/settings" element={<Navigate to="/config" replace />} />
                             <Route path="/api-keys" element={<ApiKeysPage />} />
                             <Route

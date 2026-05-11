@@ -5,9 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	internalrouting "github.com/router-for-me/CLIProxyAPI/v6/internal/routing"
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
 )
 
 func attachPathRouteContext(c *gin.Context, route *internalrouting.PathRouteContext) {
@@ -18,89 +16,6 @@ func attachPathRouteContext(c *gin.Context, route *internalrouting.PathRouteCont
 	if c.Request != nil {
 		c.Request = c.Request.WithContext(internalrouting.WithPathRouteContext(c.Request.Context(), route))
 	}
-}
-
-func resolvePathRouteContext(cfg *config.Config, authManager *cliproxyauth.Manager, rawGroup string) (*internalrouting.PathRouteContext, bool) {
-	group := internalrouting.NormalizeGroupName(rawGroup)
-	if group == "" {
-		return nil, false
-	}
-	routePath := internalrouting.NormalizeNamespacePath(group)
-	if routePath == "" {
-		return nil, false
-	}
-	if cfg != nil {
-		for i := range cfg.Routing.PathRoutes {
-			route := cfg.Routing.PathRoutes[i]
-			if route.Path == routePath {
-				return &internalrouting.PathRouteContext{
-					RoutePath: route.Path,
-					Group:     route.Group,
-					Fallback:  internalrouting.NormalizeFallback(route.Fallback),
-				}, true
-			}
-		}
-	}
-	if authManager != nil {
-		if _, ok := authManager.KnownChannelGroups()[group]; ok {
-			return &internalrouting.PathRouteContext{
-				RoutePath: routePath,
-				Group:     group,
-				Fallback:  "none",
-			}, true
-		}
-	}
-	return nil, false
-}
-
-func groupRoutingMiddleware(resolve func(string) (*internalrouting.PathRouteContext, bool)) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if resolve == nil {
-			c.Next()
-			return
-		}
-		route, ok := resolve(c.Param("group"))
-		if !ok || route == nil {
-			abortChannelGroupRouteNotFound(c)
-			return
-		}
-		attachPathRouteContext(c, route)
-		c.Next()
-	}
-}
-
-func abortChannelGroupRouteNotFound(c *gin.Context) {
-	if c == nil {
-		return
-	}
-	c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-		"error": map[string]any{
-			"message": "channel group route not found",
-			"type":    "invalid_request_error",
-			"code":    "route_group_unavailable",
-		},
-	})
-}
-
-func splitGroupedAPIPath(path string) (string, string, bool) {
-	path = strings.TrimSpace(path)
-	if path == "" || path == "/" {
-		return "", "", false
-	}
-	markers := []string{"/v1beta/", "/v1/"}
-	for _, marker := range markers {
-		idx := strings.LastIndex(path, marker)
-		if idx <= 0 {
-			continue
-		}
-		groupPath := path[:idx]
-		apiPath := path[idx:]
-		if internalrouting.NormalizeNamespacePath(groupPath) == "" {
-			return "", "", false
-		}
-		return groupPath, apiPath, true
-	}
-	return "", "", false
 }
 
 func channelGroupAuthorizationMiddleware() gin.HandlerFunc {

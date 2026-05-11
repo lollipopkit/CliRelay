@@ -52,6 +52,20 @@ remote-management:
 # Authentication directory (supports ~ for home directory).
 # In Docker/cloud deployments, AUTH_PATH overrides this value at runtime.
 auth-dir: "~/.cli-proxy-api"
+# Backup settings for automated and manual data snapshots.
+backup:
+  # Enable periodic backup scheduling.
+  enable: false
+  # Backup storage directory (relative to config directory, or absolute path).
+  dir: "backups"
+  # Cron expression for scheduled backups (empty = manual only).
+  cron: "0 3 * * *"          # Every day at 3 AM
+  # Maximum number of backups to retain (0 = unlimited).
+  max-keep: 7
+  # Maximum age in days for retained backups (0 = unlimited).
+  max-age-days: 30
+  # Include auth-dir token files in backups.
+  include-auth-files: false
 # When true, allow /v1 and /v1beta requests without API keys when no keys/providers
 # are configured. Not recommended for production.
 allow-unauthenticated: false

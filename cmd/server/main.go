@@ -132,6 +132,12 @@ func main() {
 		})
 	}
 
+	// Handle backup subcommand before flag parsing (backup uses positional args).
+	if len(os.Args) >= 2 && os.Args[1] == "backup" {
+		handleBackupCommand()
+		return
+	}
+
 	// Parse the command-line flags.
 	flag.Parse()
 
@@ -593,4 +599,88 @@ func runStandaloneTUI(cfg *config.Config, configFilePath, password string) {
 
 	cancel()
 	<-done
+}
+
+func handleBackupCommand() {
+	if len(os.Args) < 3 {
+		fmt.Fprintln(os.Stderr, "Usage: clirelay backup <create|list|restore|delete> [args...]")
+		return
+	}
+
+	action := os.Args[2]
+	configPath := ""
+
+	// Extract --config / -config if present in remaining args.
+	for i := 3; i < len(os.Args); i++ {
+		arg := os.Args[i]
+		if arg == "-config" || arg == "--config" {
+			if i+1 < len(os.Args) {
+				configPath = os.Args[i+1]
+			}
+		} else if strings.HasPrefix(arg, "-config=") {
+			configPath = strings.TrimPrefix(arg, "-config=")
+		} else if strings.HasPrefix(arg, "--config=") {
+			configPath = strings.TrimPrefix(arg, "--config=")
+		}
+	}
+
+	if configPath == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "backup: get wd: %v\n", err)
+			return
+		}
+		configPath = filepath.Join(wd, "config.yaml")
+	}
+
+	cfg, err := config.LoadConfigOptional(configPath, false)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "backup: load config: %v\n", err)
+		return
+	}
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+
+	switch action {
+	case "create":
+		var output string
+		for i := 3; i < len(os.Args); i++ {
+			arg := os.Args[i]
+			if arg == "--output" || arg == "-o" {
+				if i+1 < len(os.Args) {
+					output = os.Args[i+1]
+				}
+			} else if strings.HasPrefix(arg, "--output=") {
+				output = strings.TrimPrefix(arg, "--output=")
+			} else if strings.HasPrefix(arg, "-o=") {
+				output = strings.TrimPrefix(arg, "-o=")
+			}
+		}
+		cmd.DoBackupCreate(cfg, configPath, output)
+	case "list":
+		cmd.DoBackupList(cfg, configPath)
+	case "restore":
+		if len(os.Args) < 4 {
+			fmt.Fprintln(os.Stderr, "Usage: clirelay backup restore <backup-name>")
+			return
+		}
+		name := os.Args[3]
+		restoreConfig := false
+		for _, arg := range os.Args[4:] {
+			if arg == "--include-config" {
+				restoreConfig = true
+			}
+		}
+		cmd.DoBackupRestore(cfg, configPath, name, restoreConfig)
+	case "delete":
+		if len(os.Args) < 4 {
+			fmt.Fprintln(os.Stderr, "Usage: clirelay backup delete <backup-name>")
+			return
+		}
+		cmd.DoBackupDelete(cfg, configPath, os.Args[3])
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown backup action: %s\n", action)
+		fmt.Fprintln(os.Stderr, "Usage: clirelay backup <create|list|restore|delete> [args...]")
+	}
 }

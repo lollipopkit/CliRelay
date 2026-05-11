@@ -1133,6 +1133,12 @@ func getDB() *sql.DB {
 	return usageDB
 }
 
+// GetDB returns the current SQLite database connection (may be nil before InitDB).
+// Callers must not close the returned connection.
+func GetDB() *sql.DB {
+	return getDB()
+}
+
 func getUsageLocation() *time.Location {
 	usageDBMu.Lock()
 	defer usageDBMu.Unlock()

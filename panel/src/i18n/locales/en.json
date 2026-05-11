@@ -1807,7 +1807,8 @@
     "upgrade_title": "Upgrade Plan",
     "upgrade_description": "Unlock higher throughput, deeper monitoring, and priority support.",
     "upgrade_action": "Upgrade now",
-    "sidebar_account_role": "Super Admin"
+    "sidebar_account_role": "Super Admin",
+    "nav_backup": "Backup"
   },
   "proxies": {
     "title": "Proxy Management",
@@ -3459,5 +3460,38 @@
   },
   "models": {
     "total_models_count": "{{count}} models"
+  },
+  "backup_page": {
+    "title": "Backup",
+    "subtitle": "Create and manage data backups for disaster recovery.",
+    "backup_list": "Backup List",
+    "create_now": "Create Backup",
+    "refresh": "Refresh",
+    "loading": "Loading backups…",
+    "no_backups": "No backups found",
+    "create_first": "Create your first backup",
+    "col_name": "Name",
+    "col_size": "Size",
+    "col_created": "Created",
+    "col_source": "Source",
+    "col_actions": "Actions",
+    "download": "Download backup",
+    "restore": "Restore from backup",
+    "delete": "Delete backup",
+    "delete_confirm": "Delete backup \"{{name}}\"? This cannot be undone.",
+    "restore_confirm": "Restore from backup \"{{name}}\"? This will replace current data. A safety backup will be created first.",
+    "upload_restore": "Upload & Restore",
+    "upload_restore_desc": "Upload a .tar.gz backup file to restore from.",
+    "upload_restore_confirm": "Upload and restore from this backup file? This will replace current data. A safety backup will be created first.",
+    "upload_success": "Backup uploaded and restored. Please restart the service.",
+    "upload_failed": "Upload and restore failed",
+    "create_success": "Backup created successfully",
+    "create_failed": "Failed to create backup",
+    "download_failed": "Failed to download backup",
+    "delete_success": "Backup deleted",
+    "delete_failed": "Failed to delete backup",
+    "restore_success": "Backup restored. Please restart the service.",
+    "restore_failed": "Failed to restore backup",
+    "load_failed": "Failed to load backups"
   }
 }

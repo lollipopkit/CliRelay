@@ -36,7 +36,6 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/logging"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/managementasset"
-	internalrouting "github.com/router-for-me/CLIProxyAPI/v6/internal/routing"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/usage"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/watcher/synthesizer"
@@ -337,6 +336,9 @@ func NewServer(cfg *config.Config, authManager *auth.Manager, accessManager *sdk
 	// Setup routes
 	s.setupRoutes()
 
+	// Start backup scheduler if enabled.
+	s.mgmt.StartBackupScheduler()
+
 	// Register Amp module using V2 interface with Context
 	s.ampModule = ampmodule.NewLegacy(accessManager, AuthMiddleware(accessManager))
 	ctx := modules.Context{
@@ -413,9 +415,6 @@ func (s *Server) setupRoutes() {
 		group.POST("/models/*action", geminiHandlers.GeminiHandler)
 		group.GET("/models/*action", geminiHandlers.GeminiGetHandler)
 	}
-	resolveRoute := func(rawGroup string) (*internalrouting.PathRouteContext, bool) {
-		return resolvePathRouteContext(s.cfg, s.handlers.AuthManager, rawGroup)
-	}
 
 	// OpenAI compatible API routes
 	v1 := s.engine.Group("/v1")
@@ -427,16 +426,6 @@ func (s *Server) setupRoutes() {
 	v1.Use(SystemPromptMiddleware())
 	registerV1Routes(v1)
 
-	groupedV1 := s.engine.Group("/:group/v1")
-	groupedV1.Use(groupRoutingMiddleware(resolveRoute))
-	groupedV1.Use(AuthMiddleware(s.accessManager))
-	groupedV1.Use(singleAllowedChannelGroupMiddleware())
-	groupedV1.Use(channelGroupAuthorizationMiddleware())
-	groupedV1.Use(middleware.QuotaMiddleware())
-	groupedV1.Use(ModelRestrictionMiddleware())
-	groupedV1.Use(SystemPromptMiddleware())
-	registerV1Routes(groupedV1)
-
 	// Gemini compatible API routes
 	v1beta := s.engine.Group("/v1beta")
 	v1beta.Use(AuthMiddleware(s.accessManager))
@@ -445,49 +434,6 @@ func (s *Server) setupRoutes() {
 	v1beta.Use(middleware.QuotaMiddleware())
 	v1beta.Use(ModelRestrictionMiddleware())
 	registerV1BetaRoutes(v1beta)
-
-	groupedV1Beta := s.engine.Group("/:group/v1beta")
-	groupedV1Beta.Use(groupRoutingMiddleware(resolveRoute))
-	groupedV1Beta.Use(AuthMiddleware(s.accessManager))
-	groupedV1Beta.Use(singleAllowedChannelGroupMiddleware())
-	groupedV1Beta.Use(channelGroupAuthorizationMiddleware())
-	groupedV1Beta.Use(middleware.QuotaMiddleware())
-	groupedV1Beta.Use(ModelRestrictionMiddleware())
-	registerV1BetaRoutes(groupedV1Beta)
-
-	s.engine.NoRoute(func(c *gin.Context) {
-		if _, rewritten := c.Get("cliproxy.grouped_path_rewrite"); rewritten {
-			c.AbortWithStatus(http.StatusNotFound)
-			return
-		}
-		rawGroupPath, apiPath, ok := splitGroupedAPIPath(c.Request.URL.Path)
-		if !ok {
-			c.AbortWithStatus(http.StatusNotFound)
-			return
-		}
-		route, ok := resolveRoute(rawGroupPath)
-		if !ok || route == nil {
-			abortChannelGroupRouteNotFound(c)
-			return
-		}
-		attachPathRouteContext(c, route)
-		c.Set("cliproxy.grouped_path_rewrite", true)
-		c.Request.URL.Path = apiPath
-		if c.Request.URL.RawQuery != "" {
-			c.Request.RequestURI = apiPath + "?" + c.Request.URL.RawQuery
-		} else {
-			c.Request.RequestURI = apiPath
-		}
-		// Gin's NoRoute preloads 404 before our rewrite. Reset to 200 so the
-		// rewritten handler can emit a normal success status when it does not
-		// explicitly call WriteHeader itself.
-		c.Status(http.StatusOK)
-		s.engine.HandleContext(c)
-		// HandleContext resets c.handlers to the rewritten route chain but
-		// restores the old index afterwards. Abort the outer NoRoute chain so
-		// Gin cannot continue into the rewritten handlers a second time.
-		c.Abort()
-	})
 
 	// Root endpoint
 	s.engine.GET("/", func(c *gin.Context) {
@@ -842,6 +788,14 @@ func (s *Server) registerManagementRoutes() {
 		mgmt.POST("/iflow-auth-url", s.mgmt.RequestIFlowCookieToken)
 		mgmt.POST("/oauth-callback", s.mgmt.PostOAuthCallback)
 		mgmt.GET("/get-auth-status", s.mgmt.GetAuthStatus)
+
+		// Backup management
+		mgmt.POST("/backup", s.mgmt.PostBackup)
+		mgmt.GET("/backup", s.mgmt.GetBackups)
+		mgmt.GET("/backup/:name/download", s.mgmt.DownloadBackup)
+		mgmt.POST("/backup/:name/restore", s.mgmt.RestoreBackup)
+		mgmt.POST("/backup/upload-restore", s.mgmt.UploadAndRestore)
+		mgmt.DELETE("/backup/:name", s.mgmt.DeleteBackup)
 	}
 
 	// Public endpoints - no management key required

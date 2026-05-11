@@ -23,14 +23,6 @@ type RoutingChannelGroup struct {
 	AllowedModels     []string          `yaml:"allowed-models,omitempty" json:"allowed-models,omitempty"`
 }
 
-// RoutingPathRoute maps a URL namespace path to a channel group.
-type RoutingPathRoute struct {
-	Path        string `yaml:"path" json:"path"`
-	Group       string `yaml:"group" json:"group"`
-	StripPrefix bool   `yaml:"strip-prefix,omitempty" json:"strip-prefix,omitempty"`
-	Fallback    string `yaml:"fallback,omitempty" json:"fallback,omitempty"`
-}
-
 func normalizeStringList(values []string, normalizer func(string) string) []string {
 	if len(values) == 0 {
 		return nil
@@ -127,24 +119,6 @@ func (cfg *Config) SanitizeRouting() {
 		groups = append(groups, group)
 	}
 	cfg.Routing.ChannelGroups = groups
-
-	seenPaths := make(map[string]struct{}, len(cfg.Routing.PathRoutes))
-	pathRoutes := make([]RoutingPathRoute, 0, len(cfg.Routing.PathRoutes))
-	for i := range cfg.Routing.PathRoutes {
-		route := cfg.Routing.PathRoutes[i]
-		route.Path = internalrouting.NormalizeNamespacePath(route.Path)
-		route.Group = internalrouting.NormalizeGroupName(route.Group)
-		route.Fallback = internalrouting.NormalizeFallback(route.Fallback)
-		if route.Path == "" || route.Group == "" {
-			continue
-		}
-		if _, exists := seenPaths[route.Path]; exists {
-			continue
-		}
-		seenPaths[route.Path] = struct{}{}
-		pathRoutes = append(pathRoutes, route)
-	}
-	cfg.Routing.PathRoutes = pathRoutes
 }
 
 // SanitizeAPIKeyEntries normalizes API key channel-group restrictions.

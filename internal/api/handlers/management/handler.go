@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/backup"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/buildinfo"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/usage"
@@ -58,6 +59,9 @@ type Handler struct {
 	trendCache          map[string]trendCacheEntry
 	imageTasksMu        sync.Mutex
 	imageTasks          map[string]*imageGenerationTask
+
+	backupMgr       *backup.Manager
+	backupScheduler *backup.Scheduler
 }
 
 type trendCacheEntry struct {
@@ -345,6 +349,8 @@ func (h *Handler) persist(c *gin.Context) bool {
 	if mutated != nil {
 		mutated(cfg)
 	}
+	h.backupMgr = nil
+	h.StartBackupScheduler()
 	return true
 }
 

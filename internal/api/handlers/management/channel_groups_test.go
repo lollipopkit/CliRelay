@@ -54,10 +54,6 @@ func testRoutingConfig() *config.Config {
 					},
 				},
 			},
-			PathRoutes: []config.RoutingPathRoute{
-				{Path: "/pro", Group: "pro", StripPrefix: true},
-				{Path: "/team-a", Group: "team-a", StripPrefix: true},
-			},
 		},
 	}
 }
@@ -86,9 +82,6 @@ func TestBuildChannelGroupItemsIncludesExplicitImplicitAndRoutes(t *testing.T) {
 	if pro.Strategy != "round-robin" {
 		t.Fatalf("pro strategy = %q, want round-robin", pro.Strategy)
 	}
-	if strings.Join(pro.PathRoutes, ",") != "/pro" {
-		t.Fatalf("pro path-routes = %v, want [/pro]", pro.PathRoutes)
-	}
 	if !containsString(pro.Channels, "Pro Codex") || !containsString(pro.Channels, "Team A Codex") {
 		t.Fatalf("pro channels = %v, want both prefixed channels", pro.Channels)
 	}
@@ -102,9 +95,6 @@ func TestBuildChannelGroupItemsIncludesExplicitImplicitAndRoutes(t *testing.T) {
 	}
 	if teamA.Strategy != "fill-first" {
 		t.Fatalf("team-a strategy = %q, want fill-first", teamA.Strategy)
-	}
-	if strings.Join(teamA.PathRoutes, ",") != "/team-a" {
-		t.Fatalf("team-a path-routes = %v, want [/team-a]", teamA.PathRoutes)
 	}
 	if !containsString(teamA.Channels, "Team A Codex") {
 		t.Fatalf("team-a channels = %v, want Team A Codex", teamA.Channels)
@@ -155,48 +145,18 @@ func TestValidateRoutingAndAPIKeyRestrictions(t *testing.T) {
 			wantMessage: "",
 		},
 		{
-			name: "duplicate path routes are rejected",
-			mutate: func(cfg *config.Config) {
-				cfg.Routing.PathRoutes = append(cfg.Routing.PathRoutes, config.RoutingPathRoute{
-					Path:  "/pro",
-					Group: "team-a",
-				})
-			},
-			wantMessage: `duplicate path route "/pro"`,
-		},
-		{
-			name: "reserved path routes are rejected",
-			mutate: func(cfg *config.Config) {
-				cfg.Routing.PathRoutes = append(cfg.Routing.PathRoutes, config.RoutingPathRoute{
-					Path:  "/v1",
-					Group: "pro",
-				})
-			},
-			wantMessage: `path route "/v1" conflicts with reserved internal path`,
-		},
-		{
-			name: "path route group must exist",
-			mutate: func(cfg *config.Config) {
-				cfg.Routing.PathRoutes = append(cfg.Routing.PathRoutes, config.RoutingPathRoute{
-					Path:  "/free",
-					Group: "free",
-				})
-			},
-			wantMessage: `path route "/free" references unknown channel group "free"`,
-		},
-		{
 			name: "api key groups must exist",
 			mutate: func(cfg *config.Config) {
 				cfg.APIKeyEntries[0].AllowedChannelGroups = []string{"missing"}
 			},
-			wantMessage: `api-key "Team A" references unknown channel group "missing"`,
+			wantMessage: "api-key \"Team A\" references unknown channel group \"missing\"",
 		},
 		{
 			name: "api key channel and group restrictions must intersect",
 			mutate: func(cfg *config.Config) {
 				cfg.APIKeyEntries[0].AllowedChannels = []string{"Pro Codex"}
 			},
-			wantMessage: `api-key "Team A" allowed-channels do not belong to allowed-channel-groups`,
+			wantMessage: "api-key \"Team A\" allowed-channels do not belong to allowed-channel-groups",
 		},
 	}
 
@@ -343,9 +303,6 @@ func TestBuildChannelGroupItemsCanonicalizesRenamedOAuthChannel(t *testing.T) {
 					},
 				},
 			},
-			PathRoutes: []config.RoutingPathRoute{
-				{Path: "/team-alpha", Group: "team-alpha", StripPrefix: true},
-			},
 		},
 	}
 	auths := []*coreauth.Auth{
@@ -422,11 +379,7 @@ func TestBuildChannelGroupItemsDoesNotSurfaceDeletedConfiguredChannels(t *testin
 						Channels: []string{"chatgpt-pro1"},
 					},
 				},
-			},
-			PathRoutes: []config.RoutingPathRoute{
-				{Path: "/openai/pro", Group: "chatgpt-pro", StripPrefix: true},
-			},
-		},
+			},		},
 	}
 
 	items := buildChannelGroupItems(cfg, nil)
@@ -438,9 +391,6 @@ func TestBuildChannelGroupItemsDoesNotSurfaceDeletedConfiguredChannels(t *testin
 	}
 	if len(items[0].Channels) != 0 {
 		t.Fatalf("group channels = %v, want no active channels for deleted references", items[0].Channels)
-	}
-	if !containsString(items[0].PathRoutes, "/openai/pro") {
-		t.Fatalf("path-routes = %v, want /openai/pro", items[0].PathRoutes)
 	}
 }
 
@@ -487,7 +437,7 @@ func TestCanonicalizeRoutingConfigChannelsRenamedOAuthChannel(t *testing.T) {
 	}
 }
 
-func TestPutConfigYAMLRejectsInvalidRoutingRestrictions(t *testing.T) {
+func TestPutConfigYAMLAcceptsValidRoutingConfig(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	tmpDir := t.TempDir()
@@ -509,20 +459,14 @@ routing:
     - name: "pro"
       match:
         prefixes: ["pro"]
-  path-routes:
-    - path: "/v1"
-      group: "pro"
 `)
 	c.Request = httptest.NewRequest(http.MethodPut, "/config.yaml", body)
 
 	h := NewHandler(&config.Config{}, configPath, nil)
 	h.PutConfigYAML(c)
 
-	if rec.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusUnprocessableEntity, rec.Body.String())
-	}
-	if !strings.Contains(rec.Body.String(), "reserved internal path") {
-		t.Fatalf("expected reserved path validation error, got %s", rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
 	}
 }
 

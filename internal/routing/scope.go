@@ -2,9 +2,7 @@ package routing
 
 import (
 	"context"
-	"net/url"
 	"strings"
-	"unicode"
 )
 
 const (
@@ -52,41 +50,6 @@ func NormalizeGroupName(value string) string {
 	trimmed := strings.ToLower(strings.TrimSpace(value))
 	trimmed = strings.Trim(trimmed, "/")
 	return trimmed
-}
-
-// NormalizeNamespacePath converts route namespace inputs like "pro", "/pro/",
-// "/openai/pro", or "https://example.com/openai/pro" to a canonical path.
-func NormalizeNamespacePath(value string) string {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return ""
-	}
-	if parsed, err := url.Parse(trimmed); err == nil && parsed != nil && parsed.Scheme != "" && parsed.Host != "" {
-		trimmed = parsed.EscapedPath()
-		if decoded, errDecode := url.PathUnescape(trimmed); errDecode == nil {
-			trimmed = decoded
-		}
-	}
-	if idx := strings.IndexAny(trimmed, "?#"); idx >= 0 {
-		trimmed = trimmed[:idx]
-	}
-	trimmed = strings.Trim(trimmed, "/")
-	if trimmed == "" {
-		return ""
-	}
-	segments := strings.Split(trimmed, "/")
-	for _, segment := range segments {
-		if segment == "" {
-			return ""
-		}
-		for _, r := range segment {
-			if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '-' {
-				continue
-			}
-			return ""
-		}
-	}
-	return "/" + trimmed
 }
 
 // NormalizeFallback canonicalizes fallback values. Empty defaults to "none".
