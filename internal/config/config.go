@@ -633,6 +633,12 @@ type OpenAICompatibility struct {
 	// BaseURL is the base URL for the external OpenAI-compatible API endpoint.
 	BaseURL string `yaml:"base-url" json:"base-url"`
 
+	// ResponsesMode controls how client /v1/responses requests are sent upstream.
+	// bridge (default): translate Responses <-> Chat Completions and call /chat/completions.
+	// native: call the provider's /responses endpoint directly.
+	// auto: try native /responses first, then fall back to bridge on upstream/transport errors.
+	ResponsesMode string `yaml:"responses-mode,omitempty" json:"responses-mode,omitempty"`
+
 	// APIKeyEntries defines API keys with optional per-key proxy configuration.
 	APIKeyEntries []OpenAICompatibilityAPIKey `yaml:"api-key-entries,omitempty" json:"api-key-entries,omitempty"`
 
@@ -995,6 +1001,17 @@ func (cfg *Config) SanitizeOAuthModelAlias() {
 // SanitizeOpenAICompatibility removes OpenAI-compatibility provider entries that are
 // not actionable, specifically those missing a BaseURL. It trims whitespace before
 // evaluation and preserves the relative order of remaining entries.
+func NormalizeOpenAICompatibilityResponsesMode(mode string) string {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "", "bridge":
+		return "bridge"
+	case "native", "auto":
+		return strings.ToLower(strings.TrimSpace(mode))
+	default:
+		return "bridge"
+	}
+}
+
 func (cfg *Config) SanitizeOpenAICompatibility() {
 	if cfg == nil || len(cfg.OpenAICompatibility) == 0 {
 		return
@@ -1005,6 +1022,7 @@ func (cfg *Config) SanitizeOpenAICompatibility() {
 		e.Name = strings.TrimSpace(e.Name)
 		e.Prefix = normalizeModelPrefix(e.Prefix)
 		e.BaseURL = strings.TrimSpace(e.BaseURL)
+		e.ResponsesMode = NormalizeOpenAICompatibilityResponsesMode(e.ResponsesMode)
 		e.Headers = NormalizeHeaders(e.Headers)
 		for j := range e.APIKeyEntries {
 			e.APIKeyEntries[j].ProxyURL = strings.TrimSpace(e.APIKeyEntries[j].ProxyURL)

@@ -24,6 +24,28 @@ func TestConvertOpenAIChatCompletionsResponseToResponsesNonStreamReasoningAlias(
 	}
 }
 
+func TestConvertOpenAIChatCompletionsResponseToResponsesStreamDelaysCompletedUntilTrailingUsage(t *testing.T) {
+	var param any
+	chunk := []byte(`data: {"id":"chatcmpl-2","object":"chat.completion.chunk","created":1778504096,"model":"glm-5.1","choices":[{"index":0,"delta":{"reasoning":"thinking"},"finish_reason":null}]}`)
+	segments := ConvertOpenAIChatCompletionsResponseToOpenAIResponses(context.Background(), "glm-5.1", nil, []byte(`{"model":"glm-5.1"}`), chunk, &param)
+	if joined := strings.Join(segments, "\n"); !strings.Contains(joined, "response.reasoning_summary_text.delta") {
+		t.Fatalf("expected reasoning delta event, got %s", joined)
+	}
+
+	finish := []byte(`data: {"id":"chatcmpl-2","object":"chat.completion.chunk","created":1778504096,"model":"glm-5.1","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`)
+	segments = ConvertOpenAIChatCompletionsResponseToOpenAIResponses(context.Background(), "glm-5.1", nil, []byte(`{"model":"glm-5.1"}`), finish, &param)
+	if joined := strings.Join(segments, "\n"); strings.Contains(joined, "response.completed") {
+		t.Fatalf("completed should wait for trailing usage chunk, got %s", joined)
+	}
+
+	usage := []byte(`data: {"id":"chatcmpl-2","object":"chat.completion.chunk","created":1778504097,"model":"glm-5.1","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":8,"total_tokens":18}}`)
+	segments = ConvertOpenAIChatCompletionsResponseToOpenAIResponses(context.Background(), "glm-5.1", nil, []byte(`{"model":"glm-5.1"}`), usage, &param)
+	joined := strings.Join(segments, "\n")
+	if !strings.Contains(joined, "response.completed") || !strings.Contains(joined, `"input_tokens":10`) || !strings.Contains(joined, `"output_tokens":8`) {
+		t.Fatalf("expected completed event with trailing usage, got %s", joined)
+	}
+}
+
 func TestConvertOpenAIChatCompletionsResponseToResponsesStreamReasoningAliasAndResponsesUsage(t *testing.T) {
 	var param any
 	chunk := []byte(`data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1778504096,"model":"deepseek-v4-flash","choices":[{"index":0,"delta":{"reasoning":"thinking"},"finish_reason":null}],"usage":{"input_tokens":3,"output_tokens":4,"total_tokens":7,"input_tokens_details":{"cached_tokens":1},"output_tokens_details":{"reasoning_tokens":4}}}`)

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/watcher/diff"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
 )
@@ -376,10 +377,11 @@ func (s *ConfigSynthesizer) synthesizeOpenAICompat(ctx *SynthesisContext) []*cor
 			idKind := fmt.Sprintf("openai-compatibility:%s", providerName)
 			id, token := idGen.Next(idKind, key, base, proxyURL)
 			attrs := map[string]string{
-				"source":       fmt.Sprintf("config:%s[%s]", providerName, token),
-				"base_url":     base,
-				"compat_name":  compat.Name,
-				"provider_key": providerName,
+				"source":         fmt.Sprintf("config:%s[%s]", providerName, token),
+				"base_url":       base,
+				"compat_name":    compat.Name,
+				"provider_key":   providerName,
+				"responses_mode": config.NormalizeOpenAICompatibilityResponsesMode(compat.ResponsesMode),
 			}
 			if compat.Priority != 0 {
 				attrs["priority"] = strconv.Itoa(compat.Priority)
@@ -410,10 +412,11 @@ func (s *ConfigSynthesizer) synthesizeOpenAICompat(ctx *SynthesisContext) []*cor
 			idKind := fmt.Sprintf("openai-compatibility:%s", providerName)
 			id, token := idGen.Next(idKind, base)
 			attrs := map[string]string{
-				"source":       fmt.Sprintf("config:%s[%s]", providerName, token),
-				"base_url":     base,
-				"compat_name":  compat.Name,
-				"provider_key": providerName,
+				"source":         fmt.Sprintf("config:%s[%s]", providerName, token),
+				"base_url":       base,
+				"compat_name":    compat.Name,
+				"provider_key":   providerName,
+				"responses_mode": config.NormalizeOpenAICompatibilityResponsesMode(compat.ResponsesMode),
 			}
 			if compat.Priority != 0 {
 				attrs["priority"] = strconv.Itoa(compat.Priority)

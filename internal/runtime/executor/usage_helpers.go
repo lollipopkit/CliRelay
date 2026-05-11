@@ -680,6 +680,9 @@ func parseOpenAIStreamUsage(line []byte) (usage.Detail, bool) {
 	}
 	usageNode := gjson.GetBytes(payload, "usage")
 	if !usageNode.Exists() {
+		usageNode = gjson.GetBytes(payload, "response.usage")
+	}
+	if !usageNode.Exists() {
 		return usage.Detail{}, false
 	}
 	inputNode := usageNode.Get("prompt_tokens")

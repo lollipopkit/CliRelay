@@ -81,11 +81,15 @@ func (e *OpenAICompatExecutor) Execute(ctx context.Context, auth *cliproxyauth.A
 	}
 
 	from := opts.SourceFormat
+	responsesMode := openAICompatResponsesMode(auth)
 	to := sdktranslator.FromString("openai")
 	endpoint := "/chat/completions"
 	if opts.Alt == "responses/compact" {
 		to = sdktranslator.FromString("openai-response")
 		endpoint = "/responses/compact"
+	} else if openAICompatCanUseNativeResponses(responsesMode, opts) {
+		to = sdktranslator.FromString("openai-response")
+		endpoint = "/responses"
 	}
 	originalPayloadSource := req.Payload
 	if len(opts.OriginalRequest) > 0 {
@@ -150,6 +154,9 @@ func (e *OpenAICompatExecutor) Execute(ctx context.Context, auth *cliproxyauth.A
 	httpResp, err := httpClient.Do(httpReq)
 	if err != nil {
 		recordAPIResponseError(ctx, e.cfg, err)
+		if responsesMode == "auto" && endpoint == "/responses" {
+			return e.Execute(ctx, openAICompatBridgeAuth(auth), req, opts)
+		}
 		reporter.publishFailureWithContent(ctx, string(req.Payload), err.Error())
 		return resp, err
 	}
@@ -163,6 +170,9 @@ func (e *OpenAICompatExecutor) Execute(ctx context.Context, auth *cliproxyauth.A
 		b := readUpstreamErrorBody(e.Identifier(), httpResp.Body)
 		appendAPIResponseChunk(ctx, e.cfg, b)
 		logWithRequestID(ctx).Debugf("request error, error status: %d, error message: %s", httpResp.StatusCode, summarizeErrorBody(httpResp.Header.Get("Content-Type"), b))
+		if responsesMode == "auto" && endpoint == "/responses" {
+			return e.Execute(ctx, openAICompatBridgeAuth(auth), req, opts)
+		}
 		reporter.publishFailureWithContent(ctx, string(req.Payload), string(b))
 		err = statusErr{code: httpResp.StatusCode, msg: string(b)}
 		return resp, err
@@ -181,6 +191,35 @@ func (e *OpenAICompatExecutor) Execute(ctx context.Context, auth *cliproxyauth.A
 	out := sdktranslator.TranslateNonStream(ctx, to, from, req.Model, opts.OriginalRequest, translated, body, &param)
 	resp = cliproxyexecutor.Response{Payload: []byte(out), Headers: httpResp.Header.Clone()}
 	return resp, nil
+}
+
+func openAICompatResponsesMode(auth *cliproxyauth.Auth) string {
+	mode := "bridge"
+	if auth != nil && auth.Attributes != nil {
+		mode = auth.Attributes["responses_mode"]
+	}
+	return config.NormalizeOpenAICompatibilityResponsesMode(mode)
+}
+
+func openAICompatCanUseNativeResponses(mode string, opts cliproxyexecutor.Options) bool {
+	if opts.Alt != "" || opts.SourceFormat.String() != "openai-response" {
+		return false
+	}
+	return mode == "native" || mode == "auto"
+}
+
+func openAICompatBridgeAuth(auth *cliproxyauth.Auth) *cliproxyauth.Auth {
+	if auth == nil {
+		return &cliproxyauth.Auth{Attributes: map[string]string{"responses_mode": "bridge"}}
+	}
+	clone := *auth
+	attrs := make(map[string]string, len(auth.Attributes)+1)
+	for k, v := range auth.Attributes {
+		attrs[k] = v
+	}
+	attrs["responses_mode"] = "bridge"
+	clone.Attributes = attrs
+	return &clone
 }
 
 func ensureOpenAICompatStreamUsage(payload []byte) []byte {
@@ -207,7 +246,14 @@ func (e *OpenAICompatExecutor) ExecuteStream(ctx context.Context, auth *cliproxy
 	}
 
 	from := opts.SourceFormat
+	responsesMode := openAICompatResponsesMode(auth)
 	to := sdktranslator.FromString("openai")
+	endpoint := "/chat/completions"
+	nativeResponses := openAICompatCanUseNativeResponses(responsesMode, opts)
+	if nativeResponses {
+		to = sdktranslator.FromString("openai-response")
+		endpoint = "/responses"
+	}
 	originalPayloadSource := req.Payload
 	if len(opts.OriginalRequest) > 0 {
 		originalPayloadSource = opts.OriginalRequest
@@ -217,7 +263,9 @@ func (e *OpenAICompatExecutor) ExecuteStream(ctx context.Context, auth *cliproxy
 	translated := sdktranslator.TranslateRequest(from, to, baseModel, req.Payload, true)
 	requestedModel := payloadRequestedModel(opts, req.Model)
 	translated = applyPayloadConfigWithRoot(e.cfg, baseModel, to.String(), "", translated, originalTranslated, requestedModel)
-	translated = ensureOpenAICompatStreamUsage(translated)
+	if !nativeResponses {
+		translated = ensureOpenAICompatStreamUsage(translated)
+	}
 
 	translated, err = thinking.ApplyThinking(translated, req.Model, from.String(), to.String(), e.Identifier())
 	if err != nil {
@@ -230,7 +278,7 @@ func (e *OpenAICompatExecutor) ExecuteStream(ctx context.Context, auth *cliproxy
 		}
 	}
 
-	url := strings.TrimSuffix(baseURL, "/") + "/chat/completions"
+	url := strings.TrimSuffix(baseURL, "/") + endpoint
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(translated))
 	if err != nil {
 		return nil, err
@@ -269,6 +317,9 @@ func (e *OpenAICompatExecutor) ExecuteStream(ctx context.Context, auth *cliproxy
 	httpResp, err := httpClient.Do(httpReq)
 	if err != nil {
 		recordAPIResponseError(ctx, e.cfg, err)
+		if responsesMode == "auto" && endpoint == "/responses" {
+			return e.ExecuteStream(ctx, openAICompatBridgeAuth(auth), req, opts)
+		}
 		reporter.publishFailureWithContent(ctx, string(req.Payload), err.Error())
 		return nil, err
 	}
@@ -277,6 +328,12 @@ func (e *OpenAICompatExecutor) ExecuteStream(ctx context.Context, auth *cliproxy
 		b := readUpstreamErrorBody(e.Identifier(), httpResp.Body)
 		appendAPIResponseChunk(ctx, e.cfg, b)
 		logWithRequestID(ctx).Debugf("request error, error status: %d, error message: %s", httpResp.StatusCode, summarizeErrorBody(httpResp.Header.Get("Content-Type"), b))
+		if responsesMode == "auto" && endpoint == "/responses" {
+			if errClose := httpResp.Body.Close(); errClose != nil {
+				log.Errorf("openai compat executor: close response body error: %v", errClose)
+			}
+			return e.ExecuteStream(ctx, openAICompatBridgeAuth(auth), req, opts)
+		}
 		reporter.publishFailureWithContent(ctx, string(req.Payload), string(b))
 		if errClose := httpResp.Body.Close(); errClose != nil {
 			log.Errorf("openai compat executor: close response body error: %v", errClose)
@@ -307,6 +364,10 @@ func (e *OpenAICompatExecutor) ExecuteStream(ctx context.Context, auth *cliproxy
 				continue
 			}
 
+			if nativeResponses {
+				out <- cliproxyexecutor.StreamChunk{Payload: bytes.Clone(line)}
+				continue
+			}
 			if !bytes.HasPrefix(line, []byte("data:")) {
 				continue
 			}

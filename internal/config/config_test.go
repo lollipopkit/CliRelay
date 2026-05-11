@@ -136,3 +136,19 @@ func TestSaveConfigPreserveCommentsKeepsDisableControlPanelTrue(t *testing.T) {
 		t.Fatalf("saved config missing explicit true override:\n%s", rendered)
 	}
 }
+
+func TestNormalizeOpenAICompatibilityResponsesMode(t *testing.T) {
+	tests := map[string]string{
+		"":        "bridge",
+		"bridge":  "bridge",
+		"BRIDGE":  "bridge",
+		"native":  "native",
+		" auto ":  "auto",
+		"invalid": "bridge",
+	}
+	for in, want := range tests {
+		if got := NormalizeOpenAICompatibilityResponsesMode(in); got != want {
+			t.Fatalf("NormalizeOpenAICompatibilityResponsesMode(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

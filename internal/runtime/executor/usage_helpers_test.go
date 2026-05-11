@@ -69,6 +69,15 @@ func TestParseOpenAIStreamUsageResponses(t *testing.T) {
 	if detail.CachedTokens != 7 || detail.ReasoningTokens != 9 {
 		t.Fatalf("detail tokens = cached:%d reasoning:%d", detail.CachedTokens, detail.ReasoningTokens)
 	}
+
+	line = []byte(`data: {"type":"response.completed","response":{"usage":{"input_tokens":11,"output_tokens":22,"total_tokens":33}}}`)
+	detail, ok = parseOpenAIStreamUsage(line)
+	if !ok {
+		t.Fatal("expected native Responses usage chunk to parse")
+	}
+	if detail.InputTokens != 11 || detail.OutputTokens != 22 || detail.TotalTokens != 33 {
+		t.Fatalf("native response tokens = input:%d output:%d total:%d", detail.InputTokens, detail.OutputTokens, detail.TotalTokens)
+	}
 }
 
 func TestUsageReporterSpillsLargeStreamingOutputToTempFile(t *testing.T) {

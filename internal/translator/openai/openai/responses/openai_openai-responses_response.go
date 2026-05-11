@@ -45,6 +45,7 @@ type oaiToResponsesState struct {
 	TotalTokens      int64
 	ReasoningTokens  int64
 	UsageSeen        bool
+	PendingCompleted string
 }
 
 // responseIDCounter provides a process-wide unique counter for synthesized response identifiers.
@@ -62,6 +63,24 @@ func getFirstNonEmpty(root gjson.Result, paths ...string) gjson.Result {
 		}
 	}
 	return gjson.Result{}
+}
+
+func injectResponsesUsage(payload string, st *oaiToResponsesState) string {
+	if st == nil || !st.UsageSeen {
+		return payload
+	}
+	payload, _ = sjson.Set(payload, "response.usage.input_tokens", st.PromptTokens)
+	payload, _ = sjson.Set(payload, "response.usage.input_tokens_details.cached_tokens", st.CachedTokens)
+	payload, _ = sjson.Set(payload, "response.usage.output_tokens", st.CompletionTokens)
+	if st.ReasoningTokens > 0 {
+		payload, _ = sjson.Set(payload, "response.usage.output_tokens_details.reasoning_tokens", st.ReasoningTokens)
+	}
+	total := st.TotalTokens
+	if total == 0 {
+		total = st.PromptTokens + st.CompletionTokens
+	}
+	payload, _ = sjson.Set(payload, "response.usage.total_tokens", total)
+	return payload
 }
 
 // ConvertOpenAIChatCompletionsResponseToOpenAIResponses converts OpenAI Chat Completions streaming chunks
@@ -82,6 +101,7 @@ func ConvertOpenAIChatCompletionsResponseToOpenAIResponses(ctx context.Context, 
 		}
 	}
 	st := (*param).(*oaiToResponsesState)
+	nextSeq := func() int { st.Seq++; return st.Seq }
 
 	if bytes.HasPrefix(rawJSON, []byte("data:")) {
 		rawJSON = bytes.TrimSpace(rawJSON[5:])
@@ -92,6 +112,11 @@ func ConvertOpenAIChatCompletionsResponseToOpenAIResponses(ctx context.Context, 
 		return []string{}
 	}
 	if bytes.Equal(rawJSON, []byte("[DONE]")) {
+		if st.PendingCompleted != "" {
+			completed := st.PendingCompleted
+			st.PendingCompleted = ""
+			return []string{emitRespEvent("response.completed", injectResponsesUsage(completed, st))}
+		}
 		return []string{}
 	}
 
@@ -100,7 +125,46 @@ func ConvertOpenAIChatCompletionsResponseToOpenAIResponses(ctx context.Context, 
 	if obj.Exists() && obj.String() != "" && obj.String() != "chat.completion.chunk" {
 		return []string{}
 	}
-	if !root.Get("choices").Exists() || !root.Get("choices").IsArray() {
+	if usage := root.Get("usage"); usage.Exists() {
+		if v := usage.Get("prompt_tokens"); v.Exists() {
+			st.PromptTokens = v.Int()
+			st.UsageSeen = true
+		} else if v := usage.Get("input_tokens"); v.Exists() {
+			st.PromptTokens = v.Int()
+			st.UsageSeen = true
+		}
+		if v := usage.Get("prompt_tokens_details.cached_tokens"); v.Exists() {
+			st.CachedTokens = v.Int()
+			st.UsageSeen = true
+		} else if v := usage.Get("input_tokens_details.cached_tokens"); v.Exists() {
+			st.CachedTokens = v.Int()
+			st.UsageSeen = true
+		}
+		if v := usage.Get("completion_tokens"); v.Exists() {
+			st.CompletionTokens = v.Int()
+			st.UsageSeen = true
+		} else if v := usage.Get("output_tokens"); v.Exists() {
+			st.CompletionTokens = v.Int()
+			st.UsageSeen = true
+		}
+		if v := usage.Get("output_tokens_details.reasoning_tokens"); v.Exists() {
+			st.ReasoningTokens = v.Int()
+			st.UsageSeen = true
+		} else if v := usage.Get("completion_tokens_details.reasoning_tokens"); v.Exists() {
+			st.ReasoningTokens = v.Int()
+			st.UsageSeen = true
+		}
+		if v := usage.Get("total_tokens"); v.Exists() {
+			st.TotalTokens = v.Int()
+			st.UsageSeen = true
+		}
+	}
+	if !root.Get("choices").Exists() || !root.Get("choices").IsArray() || root.Get("choices.#").Int() == 0 {
+		if st.PendingCompleted != "" && st.UsageSeen {
+			completed := st.PendingCompleted
+			st.PendingCompleted = ""
+			return []string{emitRespEvent("response.completed", injectResponsesUsage(completed, st))}
+		}
 		return []string{}
 	}
 
@@ -139,7 +203,6 @@ func ConvertOpenAIChatCompletionsResponseToOpenAIResponses(ctx context.Context, 
 		}
 	}
 
-	nextSeq := func() int { st.Seq++; return st.Seq }
 	var out []string
 
 	if !st.Started {
@@ -590,19 +653,10 @@ func ConvertOpenAIChatCompletionsResponseToOpenAIResponses(ctx context.Context, 
 					completed, _ = sjson.SetRaw(completed, "response.output", gjson.Get(outputsWrapper, "arr").Raw)
 				}
 				if st.UsageSeen {
-					completed, _ = sjson.Set(completed, "response.usage.input_tokens", st.PromptTokens)
-					completed, _ = sjson.Set(completed, "response.usage.input_tokens_details.cached_tokens", st.CachedTokens)
-					completed, _ = sjson.Set(completed, "response.usage.output_tokens", st.CompletionTokens)
-					if st.ReasoningTokens > 0 {
-						completed, _ = sjson.Set(completed, "response.usage.output_tokens_details.reasoning_tokens", st.ReasoningTokens)
-					}
-					total := st.TotalTokens
-					if total == 0 {
-						total = st.PromptTokens + st.CompletionTokens
-					}
-					completed, _ = sjson.Set(completed, "response.usage.total_tokens", total)
+					out = append(out, emitRespEvent("response.completed", injectResponsesUsage(completed, st)))
+				} else {
+					st.PendingCompleted = completed
 				}
-				out = append(out, emitRespEvent("response.completed", completed))
 			}
 
 			return true
