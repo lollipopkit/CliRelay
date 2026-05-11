@@ -68,6 +68,9 @@ func TestOpenAICompatExecutorStreamAddsKimiReasoningForAssistantToolCalls(t *tes
 	if reasoning.String() == "" {
 		t.Fatalf("messages.1.reasoning_content should not be empty")
 	}
+	if !gjson.GetBytes(gotBody, "stream_options.include_usage").Bool() {
+		t.Fatalf("stream_options.include_usage should be true in upstream body: %s", string(gotBody))
+	}
 }
 
 func TestOpenAICompatExecutorCompactPassthrough(t *testing.T) {

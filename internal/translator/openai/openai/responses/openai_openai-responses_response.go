@@ -54,6 +54,16 @@ func emitRespEvent(event string, payload string) string {
 	return fmt.Sprintf("event: %s\ndata: %s", event, payload)
 }
 
+func getFirstNonEmpty(root gjson.Result, paths ...string) gjson.Result {
+	for _, path := range paths {
+		v := root.Get(path)
+		if v.Exists() && v.String() != "" {
+			return v
+		}
+	}
+	return gjson.Result{}
+}
+
 // ConvertOpenAIChatCompletionsResponseToOpenAIResponses converts OpenAI Chat Completions streaming chunks
 // to OpenAI Responses SSE events (response.*).
 func ConvertOpenAIChatCompletionsResponseToOpenAIResponses(ctx context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) []string {
@@ -98,8 +108,14 @@ func ConvertOpenAIChatCompletionsResponseToOpenAIResponses(ctx context.Context, 
 		if v := usage.Get("prompt_tokens"); v.Exists() {
 			st.PromptTokens = v.Int()
 			st.UsageSeen = true
+		} else if v := usage.Get("input_tokens"); v.Exists() {
+			st.PromptTokens = v.Int()
+			st.UsageSeen = true
 		}
 		if v := usage.Get("prompt_tokens_details.cached_tokens"); v.Exists() {
+			st.CachedTokens = v.Int()
+			st.UsageSeen = true
+		} else if v := usage.Get("input_tokens_details.cached_tokens"); v.Exists() {
 			st.CachedTokens = v.Int()
 			st.UsageSeen = true
 		}
@@ -142,12 +158,6 @@ func ConvertOpenAIChatCompletionsResponseToOpenAIResponses(ctx context.Context, 
 		st.MsgItemDone = make(map[int]bool)
 		st.FuncArgsDone = make(map[int]bool)
 		st.FuncItemDone = make(map[int]bool)
-		st.PromptTokens = 0
-		st.CachedTokens = 0
-		st.CompletionTokens = 0
-		st.TotalTokens = 0
-		st.ReasoningTokens = 0
-		st.UsageSeen = false
 		// response.created
 		created := `{"type":"response.created","sequence_number":0,"response":{"id":"","object":"response","created_at":0,"status":"in_progress","background":false,"error":null,"output":[]}}`
 		created, _ = sjson.Set(created, "sequence_number", nextSeq())
@@ -181,7 +191,7 @@ func ConvertOpenAIChatCompletionsResponseToOpenAIResponses(ctx context.Context, 
 		outputItemDone, _ = sjson.Set(outputItemDone, "sequence_number", nextSeq())
 		outputItemDone, _ = sjson.Set(outputItemDone, "item.id", st.ReasoningID)
 		outputItemDone, _ = sjson.Set(outputItemDone, "output_index", st.ReasoningIndex)
-		outputItemDone, _ = sjson.Set(outputItemDone, "item.summary.text", text)
+		outputItemDone, _ = sjson.Set(outputItemDone, "item.summary.0.text", text)
 		out = append(out, emitRespEvent("response.output_item.done", outputItemDone))
 
 		st.Reasonings = append(st.Reasonings, oaiToResponsesStateReasoning{ReasoningID: st.ReasoningID, ReasoningData: text})
@@ -232,8 +242,9 @@ func ConvertOpenAIChatCompletionsResponseToOpenAIResponses(ctx context.Context, 
 					st.MsgTextBuf[idx].WriteString(c.String())
 				}
 
-				// reasoning_content (OpenAI reasoning incremental text)
-				if rc := delta.Get("reasoning_content"); rc.Exists() && rc.String() != "" {
+				// reasoning_content (OpenAI reasoning incremental text). Some OpenAI-compatible
+				// providers emit the same content under a non-standard `reasoning` field.
+				if rc := getFirstNonEmpty(delta, "reasoning_content", "reasoning"); rc.Exists() && rc.String() != "" {
 					// On first appearance, add reasoning item and part
 					if st.ReasoningID == "" {
 						st.ReasoningID = fmt.Sprintf("rs_%s_%d", st.ResponseID, idx)
@@ -700,8 +711,9 @@ func ConvertOpenAIChatCompletionsResponseToOpenAIResponsesNonStream(_ context.Co
 
 	// Build output list from choices[...]
 	outputsWrapper := `{"arr":[]}`
-	// Detect and capture reasoning content if present
-	rcText := gjson.GetBytes(rawJSON, "choices.0.message.reasoning_content").String()
+	// Detect and capture reasoning content if present. Besides the OpenAI-style
+	// `reasoning_content`, tolerate `reasoning` used by some compatibility layers.
+	rcText := getFirstNonEmpty(gjson.ParseBytes(rawJSON), "choices.0.message.reasoning_content", "choices.0.message.reasoning").String()
 	includeReasoning := rcText != ""
 	if !includeReasoning && len(requestRawJSON) > 0 {
 		includeReasoning = gjson.GetBytes(requestRawJSON, "reasoning").Exists()
